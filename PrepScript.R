@@ -23,9 +23,9 @@ LastYear <- year(today() - 365)
 
 # read_excel failed to read LTD Dates in properly.  read.xlsx2 didn't use NAs.  Used read.xlsx2 to read LTD Dates and joined to Events
 
-Events <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/75003082.xlsx")
+Events <- read_excel("filepath/75003082.xlsx")
 
-LTDDays <- read.xlsx2("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/75003082.xlsx", sheetIndex = 1, stringsAsFactors=FALSE)
+LTDDays <- read.xlsx2("filepath/75003082.xlsx", sheetIndex = 1, stringsAsFactors=FALSE)
 LTDDays <- LTDDays %>% select(System.Event.ID, Date.Out.of.Work,Date.Returned.to.Work, Date.Restricted, Date.Returned.to.Full.Duty)
 
 ### This should be improved later
@@ -54,14 +54,14 @@ Events$Calc_InjIll <- ifelse(is.na(Events$`Nature of Injury`), Events$`Illness T
 
 # Adding OrgStruct_
 
-CCLut <- read.csv("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/OrgStructure.csv")
+CCLut <- read.csv("filepath/OrgStructure.csv")
 colnames(CCLut) <- paste("OrgStruct",colnames(CCLut), sep = "_")
 Events$CC <- as.numeric(str_sub(Events$`Cost Center`,1,4))
 Events <- left_join(Events,CCLut,by = c("CC" = "OrgStruct_CC"))
 
 # Adding EmpDir and EmpDir_ columns
 
-EmpDir <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/EmpDir.xlsx")
+EmpDir <- read_excel("filepath/EmpDir.xlsx")
 EmpDir <- EmpDir[1:79]    # cut off blank columns
 
 # join OrgStruct_ to EmpDir
@@ -72,14 +72,14 @@ EmpDir$`Cost Center` <- NULL
 
 # Join driver training info to EmpDir
 
-SafeTraining <- read_excel("//gccscif01.psegliny.com/Safety/Safety Training/1-TrainingRecords/DriverTraining/SAFETraining.xlsx")
+SafeTraining <- read_excel("filepath/SAFETraining.xlsx")
 SafeTraining$`Personnel No.` <- as.character(SafeTraining$`Personnel No.`)
 SafeTraining <- SafeTraining %>% select(`Personnel No.`, `Date of SAFE Driver Training`)
 SafeTraining <- SafeTraining %>% group_by(`Personnel No.`) %>% summarise(`Date of SAFE Driver Training` = max(`Date of SAFE Driver Training`))
 SafeTraining <- ungroup(SafeTraining)
 EmpDir <- left_join(EmpDir, SafeTraining, by = "Personnel No.")
 
-DDTraining <- read_excel("//gccscif01.psegliny.com/Safety/Safety Training/1-TrainingRecords/DriverTraining/DDTraining.xlsx")
+DDTraining <- read_excel("filepath/DDTraining.xlsx")
 DDTraining$`Personnel No.` <- as.character(DDTraining$`Personnel No.`)
 DDTraining <- DDTraining %>% select(`Personnel No.`, `Date of Defensive Driver Training`)
 DDTraining <- DDTraining %>% group_by(`Personnel No.`) %>% summarise(`Date of Defensive Driver Training` = max(`Date of Defensive Driver Training`))
@@ -87,7 +87,7 @@ DDTraining <- ungroup(DDTraining)
 EmpDir <- left_join(EmpDir, DDTraining, by = "Personnel No.")
 
 
-SmithTraining <- read_excel("//gccscif01.psegliny.com/Safety/Safety Training/1-TrainingRecords/DriverTraining/SmithTraining.xlsx")
+SmithTraining <- read_excel("filepath/SmithTraining.xlsx")
 SmithTraining$`Personnel No.` <- as.character(SmithTraining$`Personnel No.`)
 SmithTraining <- SmithTraining %>% select(`Personnel No.`, `Date of Smith Training`)
 SmithTraining <- SmithTraining %>% group_by(`Personnel No.`) %>% summarise(`Date of Smith Training` = max(`Date of Smith Training`))
@@ -97,7 +97,7 @@ EmpDir <- left_join(EmpDir, SmithTraining, by = "Personnel No.")
 remove(SafeTraining, DDTraining, SmithTraining)
 
 
-AD <- read_excel("//gccscif01.psegliny.com/Safety/Safety Training/1-TrainingRecords/DriverTraining/ADTraining.xls", skip = 17)
+AD <- read_excel("filepath/ADTraining.xls", skip = 17)
 AD$`Launch Date` <- ymd(AD$`Launch Date`)
 AD$`Due Date` <- ymd(AD$`Due Date`)
 AD$`Completion Date` <- ymd(AD$`Completion Date`)
@@ -130,7 +130,7 @@ EmpDir <- left_join(EmpDir, ADY3, by = "Personnel No.")
 
 remove(ADHPE, ADHPTT, ADY2, ADY3, AD)
 
-IsDriver <- read_excel("//gccscif01.psegliny.com/Safety/Safety Training/1-TrainingRecords/DriverTraining/Original Driver Training Status Report with Company Driver Status.xlsx")
+IsDriver <- read_excel("filepath/Original Driver Training Status Report with Company Driver Status.xlsx")
 IsDriver$`Personnel No.` <- as.character(IsDriver$`Personnel No.`)
 
 EmpDir <- left_join(EmpDir, IsDriver %>% select(`Personnel No.`,`Is Driver Final?`), by = "Personnel No.")
@@ -158,13 +158,13 @@ remove(EmpDirJoin)
 
 # join Fleet to Events
 
-Fleet <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Fleet.xlsx")
+Fleet <- read_excel("filepath/Fleet.xlsx")
 Fleet$VehID <- str_sub(Fleet$Equipment, 3,8)
 Fleet <- Fleet %>% select(VehID, `User status`, Location, AcquistnValue, ConstructYear, 
                           Description, Manufacturer, `Model number`, `Functional Loc.`)  
 colnames(Fleet) <- paste("Fleet",colnames(Fleet), sep = "_")
 
-temp <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Mileage/VehicleMileage4_15-3_16.xlsx")
+temp <- read_excel("filepath/VehicleMileage4_15-3_16.xlsx")
 
 ####
 temp <- temp %>% select(`Driver Name`, `Current Reading (MILES)`, 
@@ -213,7 +213,7 @@ Fleet <- left_join(Fleet, temp, by = c("Fleet_VehID" = "Company Vehicle Number")
 
 ### Adds mileage to fleet 
 
-temp <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Mileage/VehicleMileage4_16-3_17.xlsx")
+temp <- read_excel("filepath/VehicleMileage4_16-3_17.xlsx")
 temp <- temp %>% select(`Driver Name`, `Current Reading (MILES)`, `Prior 12 months usage (MILES)`)
 colnames(temp) <- c("Fleet_VehID", "3-17Miles", "3-17Prior12MthsMiles")
 Fleet <- left_join(Fleet, temp, by = "Fleet_VehID")
@@ -222,7 +222,7 @@ remove(temp)
 
 ### Adds Backup Tech
 
-temp <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/FleetBackupTech.xlsx")
+temp <- read_excel("filepath/FleetBackupTech.xlsx")
 temp$Fleet_VehID <- as.character(temp$Fleet_VehID)
 temp$SafetyBackupCam <- ymd(temp$SafetyBackupCam)
 temp$SafetyBackupSensor <- ymd(temp$SafetyBackupSensor)
@@ -232,14 +232,14 @@ remove(temp)
 ###  Add Fleet Classification
 
 
-temp <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/FleetClassification.xlsx")
+temp <- read_excel("filepath/FleetClassification.xlsx")
 Fleet <- left_join(Fleet, temp, by = "Fleet_Description")
 
 remove(temp)
 
 ### Add ticket count to Fleet
 
-Tickets <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Ticket Log 2017.xlsx", sheet = 3)
+Tickets <- read_excel("filepath/Ticket Log 2017.xlsx", sheet = 3)
 temp <- Tickets %>% 
             group_by(`PSEG Unit`) %>%
             summarise(Fleet_NumTickets = n())
@@ -269,7 +269,7 @@ Events <- left_join(Events, Fleet, by = c("Company Vehicle Number" = "Fleet_VehI
 
 # join Fleet costs to Events
 
-FleetCosts <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Fleet Repair Costs.xlsx")
+FleetCosts <- read_excel("filepath/Fleet Repair Costs.xlsx")
 FleetCosts$`System Event ID` <- as.character(FleetCosts$`System Event ID`)
 FleetCosts$Cost <- as.numeric(FleetCosts$Cost)
 colnames(FleetCosts)[2:3] <- paste("FleetCost",colnames(FleetCosts)[2:3], sep = "_")
@@ -278,7 +278,7 @@ remove(FleetCosts)
 
 
 
-FleetCosts <- read_excel("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Fleet Total Loss Costs.xlsx")
+FleetCosts <- read_excel("filepath/Fleet Total Loss Costs.xlsx")
 FleetCosts$`System Event ID` <- as.character(FleetCosts$`System Event ID`)
 colnames(FleetCosts)[2] <- paste("FleetCost",colnames(FleetCosts)[2], sep = "_")
 Events <- left_join(Events, FleetCosts, by = "System Event ID")
@@ -391,9 +391,9 @@ remove(TownNames)
 
 Events <- Events %>% arrange(desc(Date))
 
-write.csv(Events, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Events.csv", row.names = FALSE)
-write.csv(Fleet, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Fleet.csv", row.names = FALSE)
-write.csv(EmpDir, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/EmpDir.csv", row.names = FALSE)
+write.csv(Events, "filepath/Events.csv", row.names = FALSE)
+write.csv(Fleet, "filepath/Fleet.csv", row.names = FALSE)
+write.csv(EmpDir, "filepath/EmpDir.csv", row.names = FALSE)
 
 ### To check Fleet WO Numbers
 
