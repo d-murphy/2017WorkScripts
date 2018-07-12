@@ -2,6 +2,8 @@
 
 library(dplyr)
 library(caret)
+library(readxl)
+library(lubridate)
 
 
 
@@ -145,4 +147,14 @@ test$p_class <- ifelse(test$p > 0.008, 1, 0)
 
 confusionMatrix(test$p_class, test$MVAsNextMth)
 colAUC(test$p, test$MVAsNextMth, plotROC = TRUE)
+
+
+
+#FleetHist %>% ggplot(aes(TixLast12Mths,TixNextMth, color = factor(MVAsNextMth))) + geom_jitter(alpha=.2, size =2) 
+
+#FleetHist %>% group_by(MVAsLast12Mths,MVAsNextMth) %>% summarise(ct = n())
+
+
+
+
 

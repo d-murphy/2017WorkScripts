@@ -13,7 +13,7 @@ colnames(BodyPartCoord) <- c("Parts of Body Affected", "Xcoord", "Ycoord")
 InjuriesTableau <- Events %>% filter(`Event Subtype` %in% c("Report Only", "First Aid Case", "Days Away from Work", 
                                                             "Job Transfer or Restriction", "Other Recordable Case")) %>%
                               select(`System Event ID`, Calc_InjIll, `Accident Type`, 
-                                     OrgStruct_Line.of.business, OrgStruct_Division, `Personnel Sub Area`, `Event Subtype`, 
+                                     OrgStruct_Line.of.business, OrgStruct_Department, `Personnel Sub Area`, `Event Subtype`, 
                                      Date, Calc_Hour, `Incident Long Description`, `Part of Body Affected`, `Total Lost Days`, 
                                      `Total Restricted Days`)
 
@@ -32,6 +32,24 @@ InjuriesTableau$`Injury or Illness Type (Name updated)` <- ifelse(is.na(Injuries
 InjuriesTableau$`Accident Type (Name updated)` <- ifelse(is.na(InjuriesTableau$`Accident Type (Name updated)`), 
                                                    "Not Known", InjuriesTableau$`Accident Type (Name updated)`)
 
+
+InjuriesTableau <- InjuriesTableau %>% filter(OrgStruct_Department %in% c("Operations-East Division",
+                                                                          "Operations-West Division",
+                                                                          "Meter Services",
+                                                                          "PSEG LI FEMA",
+                                                                          "Training Support & Contractor Svcs",
+                                                                          "Planning Resources & Engineering",
+                                                                          "Revenue Operations",
+                                                                          "Projects & Construction",
+                                                                          "Transmission Ops",
+                                                                          "Customer Contact & Billing",
+                                                                          "T&D Services",
+                                                                          "Energy Efficiencey & Renewables",
+                                                                          "Security",
+                                                                          "Information Technology",
+                                                                          "Constomer Experience & Utility Marketing",
+                                                                          "T&D Emergency Planning"
+                                                                          ))
 
 BodyParts <- Events %>% filter(`Event Subtype` %in% c("Report Only", "First Aid Case", "Days Away from Work", 
                                                             "Job Transfer or Restriction", "Other Recordable Case")) %>%

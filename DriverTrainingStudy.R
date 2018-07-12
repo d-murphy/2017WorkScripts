@@ -3,6 +3,7 @@ library(dplyr)
 library(ggplot2)
 library(ggthemes)
 library(lubridate)
+library(readxl)
 
 DriverHist <- data.frame(`EmpID`=character(0),Month = numeric(0), Year = numeric(0))
 
@@ -14,9 +15,9 @@ Driver$`Is Driver Final?` <- ifelse(Driver$`Personnel No.` %in% temp, "Yes", Dri
 Driver <- Driver %>% filter(`Is Driver Final?` == "Yes") %>% select(`Personnel No.`, CC)
 colnames(Driver) <- c("EmpID", "CC")
 
-for(i in 2016:2017){
+for(i in 2015:2017){
 
-  if(i==2016){
+  if(i %in% c(2015,2016)){
   for(j in 1:12){
 
     Driver$Month <- j
@@ -24,7 +25,7 @@ for(i in 2016:2017){
     DriverHist <- bind_rows(DriverHist, Driver)
   }
   }else{
-  for(j in 1:7){
+  for(j in 1:10){
       
     Driver$Month <- j
     Driver$Year <- i
@@ -33,7 +34,7 @@ for(i in 2016:2017){
   }
 }
 
-MVActJoin <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting") & Calc_Year > 2015) %>%
+MVActJoin <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting") & Calc_Year > 2014) %>%
                                  group_by(`Driver Employee ID`, Calc_Month, Calc_Year) %>%
                                  summarise(MVAct = n())
 colnames(MVActJoin) <- c("EmpID", "Month","Year", "MVAct")
@@ -42,7 +43,7 @@ colnames(MVActJoin) <- c("EmpID", "Month","Year", "MVAct")
 DriverHist <- left_join(DriverHist, MVActJoin, by = c("EmpID" = "EmpID", "Month" = "Month","Year" = "Year"))
 
 MVActJoin <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting") &
-                                 Calc_Year > 2015 &
+                                 Calc_Year > 2014 &
                                  Calc_CrashResp == "PS Vehicle") %>%
   group_by(`Driver Employee ID`, Calc_Month, Calc_Year) %>%
   summarise(MVAct = n())
@@ -50,58 +51,62 @@ colnames(MVActJoin) <- c("EmpID", "Month","Year", "AtFaultMVAct")
 
 DriverHist <- left_join(DriverHist, MVActJoin, by = c("EmpID" = "EmpID", "Month" = "Month","Year" = "Year"))
 
+DriverHist$MonthSince2014 <- DriverHist$Month + (DriverHist$Year - 2014)*12
+
 ### Next 35 lines to secure miles per driver
 
-DriverCcCount <- EmpDir %>% 
-                      filter(`Is Driver Final?` == "Yes") %>%
-                      group_by(CC) %>%
-                      summarise(CCdriverCount = n())
+### Turned off - safer to do averages by # of people
 
-CCMileage <- data.frame(CC=numeric(0),Miles = numeric(0), Year = numeric(0), Month = numeric(0))
-
-for(i in 2016:2017){
-
-  if(i==2016){
-    
-  for(j in 1:12){
-    
-    filename <- if(j<10){paste0(i,"0",j)}else{paste0(i,j)}
-    new <- read_excel(paste0("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Mileage/",filename,".xlsx"))
-    
-    new <- new %>% mutate(Miles = `Company Mileage` + `Personal Mileage`) %>%
-                   select(`Cost Center`, Miles, Year, Month)
-    colnames(new) <- c("CC", "Miles", "Year", "Month")
-    new$CC <- as.numeric(substring(new$`CC`,0,4))
-    
-    CCMileage <- bind_rows(CCMileage, new)
-    }
-  }else{
-    for(j in 1:7){
-      
-      filename <- if(j<10){paste0(i,"0",j)}else{paste0(i,j)}
-      new <- read_excel(paste0("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Mileage/",filename,".xlsx"))
-      
-      new <- new %>% mutate(Miles = `Company Mileage` + `Personal Mileage`) %>%
-                     select(`Cost Center`, Miles, Year, Month)
-        colnames(new) <- c("CC", "Miles", "Year", "Month")
-        new$CC <- as.numeric(substring(new$`CC`,0,4))
-      
-        CCMileage <- bind_rows(CCMileage, new)
-    }
-  }  
-    
-}
-
-CCMileage <- left_join(CCMileage, DriverCcCount, by = "CC")
-
-CCMileage <- CCMileage %>% mutate(MilesPerDriver = Miles / CCdriverCount)
+# DriverCcCount <- EmpDir %>% 
+#                       filter(`Is Driver Final?` == "Yes") %>%
+#                       group_by(CC) %>%
+#                       summarise(CCdriverCount = n())
+# 
+# CCMileage <- data.frame(CC=numeric(0),Miles = numeric(0), Year = numeric(0), Month = numeric(0))
+# 
+# for(i in 2016:2017){
+# 
+#   if(i==2016){
+#     
+#   for(j in 1:12){
+#     
+#     filename <- if(j<10){paste0(i,"0",j)}else{paste0(i,j)}
+#     new <- read_excel(paste0("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Mileage/",filename,".xlsx"))
+#     
+#     new <- new %>% mutate(Miles = `Company Mileage` + `Personal Mileage`) %>%
+#                    select(`Cost Center`, Miles, Year, Month)
+#     colnames(new) <- c("CC", "Miles", "Year", "Month")
+#     new$CC <- as.numeric(substring(new$`CC`,0,4))
+#     
+#     CCMileage <- bind_rows(CCMileage, new)
+#     }
+#   }else{
+#     for(j in 1:7){
+#       
+#       filename <- if(j<10){paste0(i,"0",j)}else{paste0(i,j)}
+#       new <- read_excel(paste0("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/Mileage/",filename,".xlsx"))
+#       
+#       new <- new %>% mutate(Miles = `Company Mileage` + `Personal Mileage`) %>%
+#                      select(`Cost Center`, Miles, Year, Month)
+#         colnames(new) <- c("CC", "Miles", "Year", "Month")
+#         new$CC <- as.numeric(substring(new$`CC`,0,4))
+#       
+#         CCMileage <- bind_rows(CCMileage, new)
+#     }
+#   }  
+#     
+# }
+# 
+# CCMileage <- left_join(CCMileage, DriverCcCount, by = "CC")
+# 
+# CCMileage <- CCMileage %>% mutate(MilesPerDriver = Miles / CCdriverCount)
 
 
 ### Join Mileage Per Driver to Driver History
 
-DriverHist <- left_join(DriverHist, CCMileage, by = c("CC" = "CC", "Year" = "Year", "Month" = "Month"))
-
-remove(CCMileage, DriverCcCount, filename, new)
+# DriverHist <- left_join(DriverHist, CCMileage, by = c("CC" = "CC", "Year" = "Year", "Month" = "Month"))
+# 
+# remove(CCMileage, DriverCcCount, filename, new)
 
 
 ### Load Training again
@@ -119,143 +124,30 @@ SmithTraining <- read_excel("//gccscif01.psegliny.com/Safety/Safety Training/1-T
 SmithTraining$`Personnel No.` <- as.character(SmithTraining$`Personnel No.`)
 SmithTraining <- SmithTraining %>% select(`Personnel No.`, `Date of Smith Training`)
 
-### add months since training 
+
+SmithTraining$MonthOfSmithSince2014 <- month(SmithTraining$`Date of Smith Training`) + 
+                       12 * (year(SmithTraining$`Date of Smith Training`) - 2014)
+DDTraining$MonthOfDDSince2014 <- month(DDTraining$`Date of Defensive Driver Training`) + 
+                       12 * (year(DDTraining$`Date of Defensive Driver Training`) - 2014)
+SafeTraining$MonthOfSafeSince2014 <- month(SafeTraining$`Date of SAFE Driver Training`) + 
+                       12 * (year(SafeTraining$`Date of SAFE Driver Training`) - 2014)
+
+SmithTraining$`Date of Smith Training` <- NULL
+DDTraining$`Date of Defensive Driver Training` <- NULL
+SafeTraining$`Date of SAFE Driver Training` <- NULL
 
 
-
-# DriverHist$MthsSinceSmith <- NULL
-# 
-# DriverHist <- left_join(DriverHist, SmithTraining, by = c("EmpID" = "Personnel No."))
-# DriverHist <- left_join(DriverHist, DDTraining, by = c("EmpID" = "Personnel No."))
-# DriverHist <- left_join(DriverHist, SafeTraining, by = c("EmpID" = "Personnel No."))
+DriverHist <- left_join(DriverHist, SmithTraining, by = c("EmpID" = "Personnel No."))
+DriverHist <- left_join(DriverHist, DDTraining, by = c("EmpID" = "Personnel No."))
+DriverHist <- left_join(DriverHist, SafeTraining, by = c("EmpID" = "Personnel No."))
 # 
 # DriverHist$MonthsSinceSmith <- ymd(paste0(DriverHist$Year,"-",DriverHist$Month,"-3))
 
+DriverHist$MonthSinceSmith <- DriverHist$MonthSince2014 - DriverHist$MonthOfSmithSince2014
+DriverHist$MonthSinceSafe <- DriverHist$MonthSince2014 - DriverHist$MonthOfSafeSince2014
+DriverHist$MonthSinceDD <- DriverHist$MonthSince2014 - DriverHist$MonthOfDDSince2014
 
 
-DriverHist$MthsSinceSmith <- NA
-
-for(i in 1:dim(DriverHist)[1]){
-
-  if(DriverHist$EmpID[i] %in% SmithTraining$`Personnel No.`){
-  
-    # ymd(`Date of Smith Training`) <
-    #   ymd(paste0(DriverHist$Year[i],"-",DriverHist$Month[i],"-28")) &
-    
-  temp <- SmithTraining %>% filter(`Personnel No.` == DriverHist$EmpID[i])
-  if(dim(temp)[1]>1){
-    temp <- temp %>% arrange(desc(`Date of Smith Training`))
-  }
-
-  if(dim(temp)[1]>0){
-
-  DriverHist$MthsSinceSmith[i] <- round((ymd(paste0(DriverHist$Year[i],"-",DriverHist$Month[i],"-15")) -
-                                        ymd(temp$`Date of Smith Training`[1])) / 30 )
-    }
-  }
-}
-
-DriverHist$MthsSinceDD <- NA
-
-for(i in 1:dim(DriverHist)[1]){
-  
-  if(DriverHist$EmpID[i] %in% DDTraining$`Personnel No.`){
-  
-  temp <- DDTraining %>% filter(`Personnel No.` == DriverHist$EmpID[i])
-  
-  if(dim(temp)[1]>1){
-    temp <- temp %>% arrange(desc(`Date of Defensive Driver Training`))
-  }
-  
-  if(dim(temp)[1]>0){
-    
-    DriverHist$MthsSinceDD[i] <- round((ymd(paste0(DriverHist$Year[i],"-",DriverHist$Month[i],"-15")) -
-                                             ymd(temp$`Date of Defensive Driver Training`[1])) / 30 )
-    }
-  }
-}
-
-DriverHist$MthsSinceSafe <- NA
-
-for(i in 1:dim(DriverHist)[1]){
-  
-  
-  if(DriverHist$EmpID[i] %in% SafeTraining$`Personnel No.`){
-  
-    temp <- SafeTraining %>% filter(`Personnel No.` == DriverHist$EmpID[i])
-    
-    if(dim(temp)[1]>1){
-      temp <- temp %>% arrange(desc(`Date of SAFE Driver Training`))
-    }
-  
-   if(dim(temp)[1]>0){
-    
-      DriverHist$MthsSinceSafe[i] <- round((ymd(paste0(DriverHist$Year[i],"-",DriverHist$Month[i],"-15")) -
-                                             ymd(temp$`Date of SAFE Driver Training`[1])) / 30 )
-    }
-  }
-}
-
-
-# DriverHist$MthsSinceMVA <- NA
-# 
-# MVADriverIDs <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting")) %>%
-#                                     select(`Driver Employee ID`)
-# 
-# for(i in 1:dim(DriverHist)[1]){
-# 
-# 
-#   if(DriverHist$EmpID[i] %in% MVADriverIDs$`Driver Employee ID`) {
-# 
-#  
-#     
-#     temp <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting") &
-#                               `Driver Employee ID` == DriverHist$EmpID[i] &
-#                               Date < ymd(paste0(DriverHist$Year[i],"-",DriverHist$Month[i],"-01")))  %>%
-#                        select(Calc_Year, Calc_Month, Calc_Day, Date)
-# 
-#   
-#     if(dim(temp)[1]>1){
-#       temp <- temp %>% arrange(desc(Date))
-#     }
-# 
-#     if(dim(temp)[1]>0){
-# 
-#       DriverHist$MthsSinceMVA[i] <- round((ymd(paste0(DriverHist$Year[i],"-",DriverHist$Month[i],"-01")) -
-#                                               ymd(paste0(temp$Calc_Year[1], "-", temp$Calc_Month[1],"-", temp$Calc_Day[1]))) / 30 )
-#     }
-#   }
-# }
-
-
-
-
-# Check Any Training
-
-# DriverHist$SmithTrained <- ifelse(is.na(DriverHist$MthsSinceSmith),0,1)
-# DriverHist$DDTrained <- ifelse(is.na(DriverHist$MthsSinceDD),0,1)
-# DriverHist$SafeTrained <- ifelse(is.na(DriverHist$MthsSinceSafe),0,1)
-
-# Check Training with 6 Months
-
-# DriverHist$SmithTrained <- ifelse(is.na(DriverHist$MthsSinceSmith),0,
-#                                   ifelse(DriverHist$MthsSinceSmith>=0&DriverHist$MthsSinceSmith<6, 1,0))
-# DriverHist$DDTrained <- ifelse(is.na(DriverHist$MthsSinceDD),0,
-#                                ifelse(DriverHist$MthsSinceDD>=0&DriverHist$MthsSinceDD<6, 1,0))
-# DriverHist$SafeTrained <- ifelse(is.na(DriverHist$MthsSinceSafe),0,
-#                                  ifelse(DriverHist$MthsSinceSafe>=0&DriverHist$MthsSinceSafe<6, 1,0))
-
-
-# Check Training within 2 Months
-
-# DriverHist$SmithTrained <- ifelse(is.na(DriverHist$MthsSinceSmith),0,
-#                                   ifelse(DriverHist$MthsSinceSmith>=0&DriverHist$MthsSinceSmith<=2, 1,0))
-# DriverHist$DDTrained <- ifelse(is.na(DriverHist$MthsSinceDD),0,
-#                                ifelse(DriverHist$MthsSinceDD>=0&DriverHist$MthsSinceDD<=2, 1,0))
-# DriverHist$SafeTrained <- ifelse(is.na(DriverHist$MthsSinceSafe),0,
-#                                  ifelse(DriverHist$MthsSinceSafe>=0&DriverHist$MthsSinceSafe<=2, 1,0))
-
-# Check if before or after training
 
 DriverHist$SmithTrained <- ifelse(is.na(DriverHist$MthsSinceSmith),0,
                                   ifelse(DriverHist$MthsSinceSmith>=0,1,-1))
@@ -265,84 +157,63 @@ DriverHist$SafeTrained <- ifelse(is.na(DriverHist$MthsSinceSafe),0,
                                  ifelse(DriverHist$MthsSinceSafe>=0, 1,-1))
 
 
-
-Results <- DriverHist %>% group_by(CC,SmithTrained) %>%
-              summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), TotalMVAs = sum(MVAct, na.rm = TRUE)) %>%
-              mutate(Rate = TotalMVAs * 1000000 / TotalMiles)
-
-Results <- left_join(Results, CCLut, by = c("CC" = "OrgStruct_CC"))
-
-Results <- Results %>% group_by(OrgStruct_Division, SmithTrained) %>%
-             summarise(DivTotalMiles = sum(TotalMiles), DivTotalMVAs = sum(TotalMVAs))
-
-Results <- Results %>% mutate(Rate = DivTotalMVAs * 1000000 / DivTotalMiles)
-
-write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/MVAProject/SmithTrainedRates.csv", row.names = FALSE)
-
-Results <- DriverHist %>% group_by(SmithTrained) %>% 
-                          summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), 
-                                    TotalMVAs = sum(MVAct, na.rm = TRUE),
-                                    TotalAtFaultMVAS = sum(AtFaultMVAct, na.rm = TRUE)) %>%
-                          mutate(Rate = TotalMVAs * 1000000 / TotalMiles,
-                                 AtFaultMvaRate = TotalAtFaultMVAS * 1000000 / TotalMiles)
-
-write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/MVAProject/BinarySmithTrainedRates.csv", row.names = FALSE)
-
-GraphMonthlyRate <- function(col){
+GraphMonthlyRate <- function(col, str){
 
     Results <- DriverHist %>% group_by_(col) %>% 
     summarise(MVAct = sum(MVAct, na.rm = TRUE),
               NumberAtMth = n()) %>% 
-    mutate(MonthlyRate = MVAct / NumberAtMth)
+    mutate(MonthlyRate = MVAct / NumberAtMth,
+           BeforeOrAfter = ifelse(col<=0,"Before Training", "After Training"))
   
 
-    Results %>% ggplot(aes_string(x = col, y = "MonthlyRate")) + geom_line() +
+    Results %>% filter(NumberAtMth > 150 & NumberAtMth < 5000) %>%
+      ggplot(aes_string(x = col, y = "MonthlyRate")) + geom_line(size = 1) +
+    geom_vline(xintercept = 0, col="dark blue", size = 1)+
     theme_hc() +
     scale_fill_pander() + 
     labs(y = "# of MVAs / # of Employees", x = "Months Relative to Class") + 
-    ggtitle(col)
+    ggtitle(str)
   
 }
 
-GraphMonthlyRate("MthsSinceSmith")
-GraphMonthlyRate("MthsSinceDD")
-GraphMonthlyRate("MthsSinceSafe")
+GraphMonthlyRate("MonthSinceSmith", "Months Before or After Smith")
+GraphMonthlyRate("MonthSinceDD", "Months Before or After Defensive Driver")
+GraphMonthlyRate("MonthSinceSafe", "Months Before or After CDT Safe Driver")
 
-GraphMonthlyNum <- function(col){
-  
-  Results <- DriverHist %>% group_by_(col) %>% 
-    summarise(MVAct = sum(MVAct, na.rm = TRUE),
-              NumberAtMth = n()) %>% 
-    mutate(MonthlyRate = MVAct / NumberAtMth)
-  
-  
-  Results %>% ggplot(aes_string(x = col, y = "NumberAtMth")) + geom_bar(stat="identity") +
-    theme_hc() +
-    scale_fill_pander() + 
-    labs(y = "Count of Employees", x = "Months Relative to Class") + 
-    ggtitle(col)
-  
-}
-
-GraphMonthlyNum("MthsSinceSmith")
-GraphMonthlyNum("MthsSinceDD")
-GraphMonthlyNum("MthsSinceSafe")
 
 DriverHist$HadAccident <- ifelse(is.na(DriverHist$MVAct),"No MVA", "Had MVA")
 
-GraphMonthlyNumWithMVA <- function(col){
+GraphMonthlyNumWithMVA <- function(col, str){
   
-  DriverHist %>% ggplot(aes_string(x = col, fill = "HadAccident")) + geom_bar() +
+  DriverHist %>% 
+    ggplot(aes_string(x = col, fill = "HadAccident")) + geom_bar() +
     theme_hc() +
-    scale_fill_pander() + 
-    labs(y = "Count of Employees", x = "Months Relative to Class") + 
-    ggtitle(col)
+    scale_fill_tableau() + 
+    labs(y = "Count of Employees", x = "Months Relative to Class", fill = "") + 
+    ggtitle("")
   
 }
 
-GraphMonthlyNumWithMVA("MthsSinceSmith")
-GraphMonthlyNumWithMVA("MthsSinceDD")
-GraphMonthlyNumWithMVA("MthsSinceSafe")
+GraphMonthlyNumWithMVA("MonthSinceSmith", "Months Before and After Smith")
+GraphMonthlyNumWithMVA("MonthSinceDD", "Months Before and After Defensive Driving")
+GraphMonthlyNumWithMVA("MonthSinceSafe", "Months Before and After CDT Safe Driver")
+
+
+DriverHist %>% mutate(AfterDD = if_else(is.na(MonthSinceDD),0,
+                              if_else(MonthSinceDD==0, 1,
+                              if_else(MonthSinceDD>0,2,-1)))) %>% 
+               group_by(AfterDD) %>% 
+               summarise(MVATotal = sum(MVAct, na.rm=TRUE), 
+                         DriverMonths = n()) %>% 
+               mutate(MvaPerDriverMonths = MVATotal / DriverMonths)
+
+DriverHist %>% mutate(AfterSafe = if_else(is.na(MonthSinceSafe),0,
+                                        if_else(MonthSinceSafe==0, 1,
+                                        if_else(MonthSinceSafe>0,2,-1)))) %>% 
+              group_by(AfterSafe) %>% 
+              summarise(MVATotal = sum(MVAct, na.rm=TRUE), 
+                        DriverMonths = n()) %>% 
+              mutate(MvaPerDriverMonths = MVATotal / DriverMonths)
 
 
 
@@ -352,308 +223,50 @@ GraphMonthlyNumWithMVA("MthsSinceSafe")
 
 
 
-  
-Results <- DriverHist %>% group_by(SmithTrained) %>% 
-  summarise(MVAct = sum(MVAct, na.rm = TRUE),
-            NumberAtMth = n()) %>% 
-  mutate(MonthlyRate = MVAct / NumberAtMth)
-  
-Results <- DriverHist %>% group_by(DDTrained) %>% 
-  summarise(MVAct = sum(MVAct, na.rm = TRUE),
-            NumberAtMth = n()) %>% 
-  mutate(MonthlyRate = MVAct / NumberAtMth)
+DistOfSmithRates <- DriverHist %>% group_by(MonthSinceSmith) %>% summarise(ct = n(), 
+                                                                           MVATot = sum(MVAct, na.rm = TRUE)) %>%
+                                   mutate(Rate = MVATot / ct)
 
-Results <- DriverHist %>% group_by(SafeTrained) %>% 
-  summarise(MVAct = sum(MVAct, na.rm = TRUE),
-            NumberAtMth = n()) %>% 
-  mutate(MonthlyRate = MVAct / NumberAtMth)
+DistOfSmithRates$BeforeTraining <- ifelse(DistOfSmithRates$MonthSinceSmith<=0,"Yes","No")
+                                                           
+ggplot(DistOfSmithRates %>% filter(ct > 100 & ct < 5000), aes(x = Rate, fill = BeforeTraining)) + 
+            geom_histogram() +
+            theme_hc() +
+            scale_fill_pander() + 
+            labs(x = "", y = "Count", fill = "Before Training") + 
+            ggtitle("Distribution of MVAs per Person in Months Before / After Smith Training")
 
 
-  
-  
-  group_by(col) %>% 
-    summarise(MVAct = sum(MVAct, na.rm = TRUE),
-              NumberAtMth = n()) %>% 
-    mutate(MonthlyRate = MVAct / NumberAtMth)
-  
-  
+DistOfDDRates <- DriverHist %>% group_by(MonthSinceDD) %>% summarise(ct = n(), 
+                                                                           MVATot = sum(MVAct, na.rm = TRUE)) %>%
+  mutate(Rate = MVATot / ct)
 
+DistOfDDRates$BeforeTraining <- ifelse(DistOfDDRates$MonthSinceDD<=0,"Yes","No")
 
-
-Results <- DriverHist %>% group_by(CC,DDTrained) %>%
-  summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), TotalMVAs = sum(MVAct, na.rm = TRUE)) %>%
-  mutate(Rate = TotalMVAs * 1000000 / TotalMiles)
-
-Results <- left_join(Results, CCLut, by = c("CC" = "OrgStruct_CC"))
-
-Results <- Results %>% group_by(OrgStruct_Division, DDTrained) %>%
-  summarise(DivTotalMiles = sum(TotalMiles), DivTotalMVAs = sum(TotalMVAs))
-
-Results <- Results %>% mutate(Rate = DivTotalMVAs * 1000000 / DivTotalMiles)
-
-write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/MVAProject/DDTrainedRates.csv", row.names = FALSE)
-
-Results <- DriverHist %>% group_by(DDTrained) %>% 
-                          summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), 
-                                    TotalMVAs = sum(MVAct, na.rm = TRUE),
-                                    TotalAtFaultMVAS = sum(AtFaultMVAct, na.rm = TRUE)) %>%
-                          mutate(Rate = TotalMVAs * 1000000 / TotalMiles,
-                                 AtFaultMvaRate = TotalAtFaultMVAS * 1000000 / TotalMiles)
-
-write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/MVAProject/BinaryDDTrainedRates.csv", row.names = FALSE)
-
-
-Results <- DriverHist %>% group_by(CC,SafeTrained) %>%
-  summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), TotalMVAs = sum(MVAct, na.rm = TRUE)) %>%
-  mutate(Rate = TotalMVAs * 1000000 / TotalMiles)
-
-Results <- left_join(Results, CCLut, by = c("CC" = "OrgStruct_CC"))
-
-Results <- Results %>% group_by(OrgStruct_Division, SafeTrained) %>%
-  summarise(DivTotalMiles = sum(TotalMiles), DivTotalMVAs = sum(TotalMVAs))
-
-Results <- Results %>% mutate(Rate = DivTotalMVAs * 1000000 / DivTotalMiles)
-
-write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/MVAProject/SafeTrainedRates.csv", row.names = FALSE)
-
-Results <- DriverHist %>% group_by(SafeTrained) %>% 
-  summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), 
-            TotalMVAs = sum(MVAct, na.rm = TRUE),
-            TotalAtFaultMVAS = sum(AtFaultMVAct, na.rm = TRUE)) %>%
-  mutate(Rate = TotalMVAs * 1000000 / TotalMiles,
-         AtFaultMvaRate = TotalAtFaultMVAS * 1000000 / TotalMiles)
-
-write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/MVAProject/BinarySafeTrainedRates.csv", row.names = FALSE)
-
-
-
-
-
-
-
-Results <- DriverHist %>% group_by(MthsSinceSmith) %>%
-               summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), 
-                         TotalMVAs = sum(MVAct, na.rm = TRUE),
-                         TotalAtFaultMVAs = sum(AtFaultMVAct, na.rm = TRUE), 
-                         Ct = n()) %>% 
-               mutate(Rate = TotalMVAs * 1000000 / TotalMiles, 
-                      AtFaultMvaRate = TotalAtFaultMVAs * 1000000 / TotalMiles, 
-                      EmpRate = TotalMVAs / Ct, 
-                      EmpAFRate = TotalAtFaultMVAs / Ct)
-
-# Results <- Results %>% mutate(ClassRecent = 
-#                                 case_when(.$MthsSinceSmith %in% c(0:2) ~ "0-2 months",
-#                                           .$MthsSinceSmith %in% c(3:5) ~ "3-5 months",
-#                                           .$MthsSinceSmith %in% c(6:8) ~ "6-8 months",
-#                                           .$MthsSinceSmith %in% c(9:11) ~ "9-11 months",
-#                                           TRUE                       ~ ">= 12 months"
-#                                           ))
-
-# Results$ClassRecent <- factor(Results$ClassRecent, levels = c("0-2 months", "3-5 months",
-#                                                               "6-8 months", "9-11 months", ">= 12 months"))
-
-# ggplot(Results %>% filter(MthsSinceSmith < 17 & MthsSinceSmith >= 0), 
-#        aes(Rate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
-#   theme_hc() +
-#   scale_fill_pander() + 
-#   labs(y = "Count", fill = "")
-
-
-# ggplot(Results %>% filter(MthsSinceSmith < 17 & MthsSinceSmith >= 0), 
-#        aes(MthsSinceSmith, Rate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-#   theme_pander() +
-#   scale_fill_pander() + 
-#   labs(x = "Months Since Smith", col = "")
-
-Results <- Results %>% mutate(ClassRecent = 
-                                case_when(.$MthsSinceSmith %in% c(-50:-1) ~ "Before Training",
-                                          .$MthsSinceSmith %in% c(0:50) ~ "After Training",
-                                          TRUE                       ~ ">= 50 months"
-                                ))
-
-Results$ClassRecent <- factor(Results$ClassRecent, levels = c("Before Training", "After Training",
-                                                              ">= 50 months"))
-
-ggplot(Results %>% filter(is.na(MthsSinceSmith)==FALSE), 
-       aes(Rate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
+ggplot(DistOfDDRates %>% filter(ct > 100 & ct < 5000), aes(x = Rate, fill = BeforeTraining)) + 
+  geom_histogram() +
   theme_hc() +
   scale_fill_pander() + 
-  labs(y = "Count", fill = "") + 
-  ggtitle("Distribution of MVA Rate Relative to Training")
+  labs(x = "", y = "Count", fill = "Before Training") + 
+  ggtitle("Distribution of MVAs per Person in Months Before / After DD Training")
 
-ggplot(Results %>% filter(is.na(MthsSinceSmith)==FALSE), 
-       aes(AtFaultMvaRate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
+
+DistOfSafeRates <- DriverHist %>% group_by(MonthSinceSafe) %>% summarise(ct = n(), 
+                                                                     MVATot = sum(MVAct, na.rm = TRUE)) %>%
+  mutate(Rate = MVATot / ct)
+
+DistOfSafeRates$BeforeTraining <- ifelse(DistOfSafeRates$MonthSinceSafe<=0,"Yes","No")
+
+ggplot(DistOfSafeRates %>% filter(ct > 100 & ct < 5000), aes(x = Rate, fill = BeforeTraining)) + 
+  geom_histogram() +
   theme_hc() +
   scale_fill_pander() + 
-  labs(y = "Count", fill = "") + 
-  ggtitle("Distribution of At Fault MVA Rate Relative to Training")
+  labs(x = "", y = "Count", fill = "Before Training") + 
+  ggtitle("Distribution of MVAs per Person in Months Before / After CDT-Safety Training")
 
 
 
-ggplot(Results %>% filter(is.na(MthsSinceSmith)==FALSE), 
-       aes(MthsSinceSmith, Rate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-  theme_pander() +
-  scale_fill_pander() + 
-  labs(x = "Months Since Smith", col = "") + 
-  ggtitle("MVA Rate for Months Relative to Training")
-
-
-ggplot(Results %>% filter(is.na(MthsSinceSmith)==FALSE), 
-       aes(MthsSinceSmith, AtFaultMvaRate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-  theme_pander() +
-  scale_fill_pander() + 
-  labs(x = "Months Since Smith", col = "") + 
-  ggtitle("At Fault MVA Rate for Months Relative to Training")
-
-
-
-
-
-Results <- DriverHist %>% group_by(MthsSinceDD) %>%
-  summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), 
-            TotalMVAs = sum(MVAct, na.rm = TRUE),
-            TotalAtFaultMVAs = sum(AtFaultMVAct, na.rm = TRUE), 
-            Ct = n()) %>% 
-  mutate(Rate = TotalMVAs * 1000000 / TotalMiles, 
-         AtFaultMvaRate = TotalAtFaultMVAs * 1000000 / TotalMiles, 
-         EmpRate = TotalMVAs / Ct,
-         EmpAFRate = TotalAtFaultMVAs / Ct) 
-# 
-# Results <- Results %>% mutate(ClassRecent = 
-#                                 case_when(.$MthsSinceDD %in% c(0:2) ~ "0-2 months",
-#                                           .$MthsSinceDD %in% c(3:5) ~ "3-5 months",
-#                                           .$MthsSinceDD %in% c(6:8) ~ "6-8 months",
-#                                           .$MthsSinceDD %in% c(9:11) ~ "9-11 months",
-#                                           TRUE                       ~ ">= 12 months"
-#                                 ))
-# 
-# Results$ClassRecent <- factor(Results$ClassRecent, levels = c("0-2 months", "3-5 months",
-#                                                               "6-8 months", "9-11 months", ">= 12 months"))
-# 
-# ggplot(Results %>% filter(MthsSinceDD < 17 & MthsSinceDD >= 0), 
-#        aes(Rate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
-#   theme_hc() +
-#   scale_fill_pander() + 
-#   labs(y = "Count", fill = "")
-# 
-# 
-# ggplot(Results %>% filter(MthsSinceDD < 17 & MthsSinceDD >= 0), 
-#        aes(MthsSinceDD, Rate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-#   theme_pander() +
-#   scale_fill_pander() + 
-#   labs(x = "Months Since Defensive Driver", col = "")
-
-Results <- Results %>% mutate(ClassRecent = 
-                                case_when(.$MthsSinceDD %in% c(-50:-1) ~ "Before DD",
-                                          .$MthsSinceDD %in% c(0:50) ~ "After DD",
-                                          TRUE                       ~ ">= 50 months"
-                                ))
-
-Results$ClassRecent <- factor(Results$ClassRecent, levels = c("Before DD", "After DD",
-                                                              ">= 50 months"))
-
-ggplot(Results %>% filter(is.na(MthsSinceDD)==FALSE), 
-       aes(Rate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
-  theme_hc() +
-  scale_fill_pander() + 
-  labs(y = "Count", fill = "") + 
-  ggtitle("Distribution of MVA Rate Relative to Training")
-
-ggplot(Results %>% filter(is.na(MthsSinceDD)==FALSE), 
-       aes(AtFaultMvaRate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
-  theme_hc() +
-  scale_fill_pander() + 
-  labs(y = "Count", fill = "") + 
-  ggtitle("Distribution of At Fault MVA Rate Relative to Training")
-
-ggplot(Results %>% filter(is.na(MthsSinceDD)==FALSE), 
-       aes(MthsSinceDD, Rate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-  theme_pander() +
-  scale_fill_pander() + 
-  labs(x = "Months Since Defensive Driver", col = "") + 
-  ggtitle("MVA Rate for Months Relative to Training")
-
-ggplot(Results %>% filter(is.na(MthsSinceDD)==FALSE), 
-       aes(MthsSinceDD, AtFaultMvaRate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-  theme_pander() +
-  scale_fill_pander() + 
-  labs(x = "Months Since Defensive Driver", col = "") + 
-  ggtitle("At Fault MVA Rate for Months Relative to Training")
-
-
-
-Results <- DriverHist %>% group_by(MthsSinceSafe) %>%
-  summarise(TotalMiles = sum(MilesPerDriver, na.rm = TRUE), 
-            TotalMVAs = sum(MVAct, na.rm = TRUE),
-            TotalAtFaultMVAs = sum(AtFaultMVAct, na.rm = TRUE), 
-            Ct = n()) %>% 
-  mutate(Rate = TotalMVAs * 1000000 / TotalMiles, 
-         AtFaultMvaRate = TotalAtFaultMVAs * 1000000 / TotalMiles)
-
-# Results <- Results %>% mutate(ClassRecent = 
-#                                 case_when(.$MthsSinceSafe %in% c(0:2) ~ "0-2 months",
-#                                           .$MthsSinceSafe %in% c(3:5) ~ "3-5 months",
-#                                           .$MthsSinceSafe %in% c(6:8) ~ "6-8 months",
-#                                           .$MthsSinceSafe %in% c(9:11) ~ "9-11 months",
-#                                           TRUE                       ~ ">= 12 months"
-#                                 ))
-# 
-# Results$ClassRecent <- factor(Results$ClassRecent, levels = c("0-2 months", "3-5 months",
-#                                                               "6-8 months", "9-11 months", ">= 12 months"))
-# 
-# ggplot(Results %>% filter(MthsSinceSafe < 9 & MthsSinceSafe >= 0), 
-#        aes(Rate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
-#   theme_hc() +
-#   scale_fill_pander() + 
-#   labs(y = "Count", fill = "")
-# 
-# 
-# ggplot(Results %>% filter(MthsSinceSafe < 9 & MthsSinceSafe >= 0), 
-#        aes(MthsSinceSafe, Rate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-#   theme_pander() +
-#   scale_fill_pander() + 
-#   labs(x = "Months Since CDT Safe Driver", col = "")
-
-Results <- Results %>% mutate(ClassRecent = 
-                                case_when(.$MthsSinceSafe %in% c(-50:-1) ~ "Before Training",
-                                          .$MthsSinceSafe %in% c(0:50) ~ "After Training",
-                                          TRUE                       ~ ">= 50 months"
-                                ))
-
-Results$ClassRecent <- factor(Results$ClassRecent, levels = c("Before Training", "After Training",
-                                                              ">= 50 months"))
-
-ggplot(Results %>% filter(is.na(MthsSinceSafe)==FALSE), 
-       aes(Rate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
-  theme_hc() +
-  scale_fill_pander() + 
-  labs(y = "Count", fill = "") + 
-  ggtitle("Distribution of MVA Rate Relative to Training")
-
-ggplot(Results %>% filter(is.na(MthsSinceSafe)==FALSE), 
-       aes(AtFaultMvaRate, fill = factor(ClassRecent))) + geom_histogram(bins =25) +
-  theme_hc() +
-  scale_fill_pander() + 
-  labs(y = "Count", fill = "") + 
-  ggtitle("Distribution of At Fault MVA Rate Relative to Training")
-
-
-ggplot(Results %>% filter(is.na(MthsSinceSafe)==FALSE), 
-       aes(MthsSinceSafe, Rate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-  theme_pander() +
-  scale_fill_pander() + 
-  labs(x = "Months Since CDT Safe Driver", col = "") + 
-  ggtitle("MVA Rate for Months Relative to Training")
-
-ggplot(Results %>% filter(is.na(MthsSinceSafe)==FALSE), 
-       aes(MthsSinceSafe, AtFaultMvaRate)) + geom_line(size =1) + geom_point(aes(col = ClassRecent), size = 3) +
-  theme_pander() +
-  scale_fill_pander() + 
-  labs(x = "Months Since CDT Safe Driver", col = "") + 
-  ggtitle("At Fault MVA Rate for Months Relative to Training")
-
-
-###  
+###  This looks at counts of MVAs relative to Training
 
 
 Events$HadSmith <- ifelse(is.na(Events$`EmpDir_Date of Smith Training`), "No Training",
@@ -793,6 +406,57 @@ ggplot(Events %>%
   labs(x = "Fleet Desc", y = "Count", fill = "") + 
   facet_wrap(Calc_CrashResp ~ EmpDir_Location, ncol = 7)  +
 theme(axis.text.x = element_text(angle = 90,hjust = 1, vjust = 0.5)) + coord_flip()
+
+
+
+
+DriverHist$SmithClass <- ifelse(DriverHist$MonthSinceSmith < -2 & DriverHist$MonthSinceSmith > -13 , -1, 
+                                ifelse(DriverHist$MonthSinceSmith > 0 & DriverHist$MonthSinceSmith < 13 , 1, 0 ))
+
+DriverHist$SafeClass <- ifelse(DriverHist$MonthSinceSafe < 0 & DriverHist$MonthSinceSafe > -13 , -1, 
+                               ifelse(DriverHist$MonthSinceSafe > 0 & DriverHist$MonthSinceSafe < 13 , 1, 0 ))
+
+DriverHist$DDClass <- ifelse(DriverHist$MonthSinceDD < 0 & DriverHist$MonthSinceDD > -13 , -1, 
+                             ifelse(DriverHist$MonthSinceDD > 0 & DriverHist$MonthSinceDD < 13 , 1, 0 ))
+
+SmithNames <- c("-1" = "Before Smith", "1" = "After Smith")
+DDNames <- c("-1" = "Before DD", "1" = "After DD")
+SafeNames <- c("-1" = "Before Safe", "1" = "After Safe")
+
+
+
+ DriverHist %>% group_by(SmithClass) %>% summarise(ct = n(), MVAct = sum(MVAct, na.rm=TRUE)) %>%
+  mutate(Rate = MVAct / ct) %>% filter(SmithClass != 0) %>%
+  ggplot(aes(factor(SmithClass), Rate, fill = "1")) + geom_bar(stat = "identity") +
+  scale_x_discrete(labels = SmithNames) +
+  theme_hc() +
+  scale_fill_pander() + 
+  labs(x = "") + guides(fill = FALSE)
+ 
+ DriverHist %>% group_by(SmithClass) %>% summarise(ct = n(), MVAct = sum(MVAct, na.rm=TRUE)) %>%
+   mutate(Rate = MVAct / ct) %>% filter(SmithClass != 0) %>%
+   ggplot(aes(factor(SmithClass), Rate, fill = "1")) + geom_bar(stat = "identity") +
+   scale_x_discrete(labels = SmithNames) +
+   theme_hc() +
+   scale_fill_pander() + 
+   labs(x = "") + guides(fill = FALSE)
+ 
+ DriverHist %>% group_by(DDClass) %>% summarise(ct = n(), MVAct = sum(MVAct, na.rm=TRUE)) %>%
+   mutate(Rate = MVAct / ct) %>% filter(DDClass != 0) %>%
+   ggplot(aes(factor(DDClass), Rate, fill = "1")) + geom_bar(stat = "identity") +
+   scale_x_discrete(labels = DDNames) +
+   theme_hc() +
+   scale_fill_pander() + 
+   labs(x = "") + guides(fill = FALSE)
+ 
+ DriverHist %>% group_by(SafeClass) %>% summarise(ct = n(), MVAct = sum(MVAct, na.rm=TRUE)) %>%
+   mutate(Rate = MVAct / ct) %>% filter(SafeClass != 0) %>%
+   ggplot(aes(factor(SafeClass), Rate, fill = "1")) + geom_bar(stat = "identity") +
+   scale_x_discrete(labels = SafeNames) +
+   theme_hc() +
+   scale_fill_pander() + 
+   labs(x = "") + guides(fill = FALSE) 
+  
 
 
 

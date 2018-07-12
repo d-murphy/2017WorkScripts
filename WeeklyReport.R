@@ -8,8 +8,8 @@ library(lubridate)
 
 # Save current data to Temp folder on Desktop.  Keep CCLut.csv on Desktop.  
 
-ReportDate <- ymd(today())     # Use for current date
-#ReportDate <- ymd("2017-08-31")   #Use to run report on another date
+#ReportDate <- ymd(today())     # Use for current date
+ReportDate <- ymd("2018-7-8")   #Use to run report on another date
 
 
 ### Dataframe to save results:  
@@ -25,8 +25,8 @@ temp <- data.frame()
 temp <- Events %>% filter(year(Date) == year(ReportDate) & 
                         `Event Subtype` %in% c("Death", "Other Recordable Case", 
                                                "Job Transfer or Restriction","Days Away from Work")  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                        `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "OSHA"
@@ -35,11 +35,11 @@ Results <- bind_rows(Results, temp)
 temp <- data.frame()
 
 temp <- Events %>% filter(Date >= ymd(paste0((year(ReportDate)-1),"-01-01")) & 
-                        Date <= (ReportDate-366) &
+                        Date <= (ReportDate-365) &
                         `Event Subtype` %in% c("Death", "Other Recordable Case", 
                                                "Job Transfer or Restriction","Days Away from Work")  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "OSHA"
@@ -52,8 +52,8 @@ temp <- Events %>% filter(Date >= ymd(paste0(year(ReportDate),"-",month(ReportDa
                         Date <= ReportDate &
                         `Event Subtype` %in% c("Death", "Other Recordable Case", 
                                                "Job Transfer or Restriction","Days Away from Work")  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "OSHA"
@@ -65,8 +65,8 @@ temp <- Events %>% filter(Date >= (ReportDate - 7)  &
                         Date <= ReportDate &  
                         `Event Subtype` %in% c("Death", "Other Recordable Case", 
                                                "Job Transfer or Restriction","Days Away from Work") &
-                        `Type of Person` == "Employee")  %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised"))  %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "OSHA"
@@ -79,8 +79,8 @@ temp <- data.frame()
 
 temp <- Events %>% filter(year(Date) == year(ReportDate) & 
                         `Event Subtype` == "First Aid Case"  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "FirstAid"
@@ -89,10 +89,10 @@ Results <- bind_rows(Results, temp)
 temp <- data.frame()
 
 temp <- Events %>% filter(Date >= ymd(paste0((year(ReportDate)-1),"-01-01")) & 
-                        Date <= (ReportDate-366) & 
+                        Date <= (ReportDate-365) & 
                         `Event Subtype` == "First Aid Case"  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "FirstAid"
@@ -105,8 +105,8 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= ymd(paste0(year(ReportDate),"-",month(ReportDate),"-01")) & 
                         Date <= ReportDate& 
                         `Event Subtype` == "First Aid Case"  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "FirstAid"
@@ -118,8 +118,8 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= (ReportDate - 7)  &
                         Date <= ReportDate & 
                         `Event Subtype` == "First Aid Case"  &
-                        `Type of Person` == "Employee")  %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised"))  %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "FirstAid"
@@ -133,7 +133,7 @@ temp <- data.frame()
 
 temp <- Events %>% filter(year(Date) == year(ReportDate) & 
                         `MV Classification` %in% c("MV - On the job", "MC - Commuting"))  %>% 
-  group_by(OrgStruct_Division) %>%
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "MVA"
@@ -143,9 +143,9 @@ temp <- data.frame()
 
 
 temp <- Events %>% filter(Date >= ymd(paste0((year(ReportDate)-1),"-01-01")) & 
-                        Date <= (ReportDate-366) & 
+                        Date <= (ReportDate-365) & 
                         `MV Classification` %in% c("MV - On the job", "MC - Commuting"))  %>% 
-  group_by(OrgStruct_Division) %>%
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "MVA"
@@ -158,7 +158,7 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= ymd(paste0(year(ReportDate),"-",month(ReportDate),"-01")) & 
                         Date <= ReportDate& 
                         `MV Classification` %in% c("MV - On the job", "MC - Commuting"))  %>% 
-  group_by(OrgStruct_Division) %>%
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "MVA"
@@ -171,7 +171,7 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= (ReportDate - 7)  &
                         Date <= ReportDate & 
                         `MV Classification` %in% c("MV - On the job", "MC - Commuting"))  %>% 
-  group_by(OrgStruct_Division) %>%
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "MVA"
@@ -183,8 +183,8 @@ temp <- data.frame()
 
 temp <- Events %>% filter(year(Date) == year(ReportDate) & 
                         `Event Subtype` == "Days Away from Work"  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "LostTime"
@@ -194,10 +194,10 @@ temp <- data.frame()
 
 
 temp <- Events %>% filter(Date >= ymd(paste0((year(ReportDate)-1),"-01-01")) & 
-                        Date <= (ReportDate-366) &
+                        Date <= (ReportDate-365) &
                         `Event Subtype` == "Days Away from Work"  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "LostTime"
@@ -209,8 +209,8 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= ymd(paste0(year(ReportDate),"-",month(ReportDate),"-01")) & 
                         Date <= ReportDate &
                         `Event Subtype` == "Days Away from Work"  &
-                        `Type of Person` == "Employee") %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised"))%>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "LostTime"
@@ -222,8 +222,8 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= (ReportDate - 7)  &
                         Date <= ReportDate &  
                         `Event Subtype` == "Days Away from Work" &
-                        `Type of Person` == "Employee")  %>% 
-  group_by(OrgStruct_Division) %>%
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised"))  %>% 
+  group_by(OrgStruct_Department) %>%
   summarise(Count = n())
 
 temp$Counting <- "LostTime"
@@ -232,14 +232,20 @@ Results <- bind_rows(Results, temp)
 temp <- data.frame()
 
 
+
+
+
+
+
 # Sum of Lost Time Days
+
 
 
 temp <- Events %>% filter(year(Date) == year(ReportDate) & 
                          `Event Subtype` == "Days Away from Work"  &
-                         `Type of Person` == "Employee") %>% 
-   group_by(OrgStruct_Division) %>%
-   summarise(Count = sum(Calc_YTDLostDays, na.rm = TRUE))
+                           `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>% 
+   group_by(OrgStruct_Department) %>%
+   summarise(Count = sum(YTDLostDays, na.rm = TRUE))
  
  
 temp$Counting <- "LostTimeDays"
@@ -249,11 +255,11 @@ temp <- data.frame()
 
 
 temp <- Events %>% filter(Date >= ymd(paste0((year(ReportDate)-1),"-01-01")) &
-                        Date <= (ReportDate-366) &
+                        Date <= (ReportDate-365) &
                         `Event Subtype` == "Days Away from Work"  &
-                        `Type of Person` == "Employee") %>%
-  group_by(OrgStruct_Division) %>%
-  summarise(Count = sum(Calc_YTDLostDays, na.rm = TRUE))
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>%
+  group_by(OrgStruct_Department) %>%
+  summarise(Count = sum(YTDLostDays, na.rm = TRUE))
 
 temp$Counting <- "LostTimeDays"
 temp$Range <- "PYTD"
@@ -266,9 +272,9 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= ymd(paste0(year(ReportDate),"-",month(ReportDate),"-01")) &
                         Date <= ReportDate &
                         `Event Subtype` == "Days Away from Work"  &
-                        `Type of Person` == "Employee") %>%
-  group_by(OrgStruct_Division) %>%
-  summarise(Count = sum(Calc_YTDLostDays, na.rm = TRUE))
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")) %>%
+  group_by(OrgStruct_Department) %>%
+  summarise(Count = sum(MTDDays, na.rm = TRUE))
 
 temp$Counting <- "LostTimeDays"
 temp$Range <- "MTD"
@@ -279,9 +285,9 @@ temp <- data.frame()
 temp <- Events %>% filter(Date >= (ReportDate - 7)  &
                         Date <= ReportDate &
                         `Event Subtype` == "Days Away from Work" &
-                        `Type of Person` == "Employee")  %>%
-  group_by(OrgStruct_Division) %>%
-  summarise(Count = sum(Calc_YTDLostDays, na.rm = TRUE))
+                          `Type of Person` %in% c("Employee", "Contractor PSEG Supervised"))  %>%
+  group_by(OrgStruct_Department) %>%
+  summarise(Count = sum(MTDDays, na.rm = TRUE))
 
 temp$Counting <- "LostTimeDays"
 temp$Range <- "WTD"
@@ -290,7 +296,7 @@ temp <- data.frame()
 
 
 
-Results$key <- paste0(Results$OrgStruct_Division,Results$Counting,Results$Range)
+Results$key <- paste0(Results$OrgStruct_Department,Results$Counting,Results$Range)
 Results <- Results[c(5,1,3,4,2)]
 
 write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/WeeklyUpdateExport.csv",row.names = FALSE)
@@ -302,7 +308,7 @@ write.csv(Results, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Weekly
 Locations <- as.data.frame(unique(Events$Calc_EmployeeYard))
 colnames(Locations) <- c("Location")
 
-Divisions <- as.data.frame(unique(Events$OrgStruct_Division))
+Divisions <- as.data.frame(unique(Events$OrgStruct_Department))
 colnames(Divisions) <- c("Division")
 
 
@@ -322,8 +328,8 @@ OSHAdf <- Events %>% filter(`Event Subtype` %in% c("Death", "Other Recordable Ca
 
 
 for(i in 1:dim(Last)[1]){
-  temp <- OSHAdf %>% filter(`Personnel Sub Area`== Last$Location[i] & 
-                              OrgStruct_Division == Last$Division[i]) %>% 
+  temp <- OSHAdf %>% filter(Calc_EmployeeYard== Last$Location[i] & 
+                              OrgStruct_Department == Last$Division[i]) %>% 
     select(Date) %>%
     summarise(Last = max(Date))
   Last$Date[i] <- temp$Last[1]  
@@ -348,7 +354,7 @@ MVAdf <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - C
 
 for(i in 1:dim(Last)[1]){
   temp <- MVAdf %>% filter(Calc_EmployeeYard== Last$Location[i] & 
-                             OrgStruct_Division == Last$Division[i]) %>% 
+                             OrgStruct_Department == Last$Division[i]) %>% 
     select(Date) %>%
     summarise(Last = max(Date))
   Last$Date[i] <- temp$Last[1]  

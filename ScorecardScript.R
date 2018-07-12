@@ -2,15 +2,18 @@ library(dplyr)
 library(stringr)
 library(lubridate)
 library(xlsx)
+library(tidyr)
 
 ReportMonth <- 7
+CurrentYear <- 2018
+
 
 Scorecard <- Events %>% filter(`Event Subtype` %in% c("Other Recordable Case", 
                                                       "Days Away from Work", 
-                                                      "Job Transfer or Restriction" ) & 
+                                                      "Job Transfer or Restriction" )  & 
                                  Calc_Year == CurrentYear & Calc_Month <= ReportMonth) %>% 
-                        select(OrgStruct_Line.of.business, `System Event ID`, Date, Calc_Month, `Affected Person`, `Job Title`,
-                               OrgStruct_Division, `Personnel Sub Area`, `Cost Center`, `MV Classification`, 
+                        select(OrgStruct_Line.of.business, `System Event ID`, Date, Calc_Month, Calc_Hour, `Affected Person`, `Job Title`,
+                               OrgStruct_Department, `Personnel Sub Area`, `Cost Center`, `MV Classification`, 
                                `Total Lost Days`, `Total Restricted Days`, `Accident Type`, Calc_InjIll, 
                                `Part of Body Affected`, `Actual Lost Workdays`, Date.Out.of.Work, Date.Returned.to.Work, 
                                `Actual Restricted Workdays`, Date.Restricted, Date.Returned.to.Full.Duty, `Incident Long Description` ) %>%
@@ -317,9 +320,9 @@ for(i in 1:dim(Scorecard)[1]){
 }
 
 Scorecard <- Scorecard %>% select(-`Actual Lost Workdays`, -`Actual Restricted Workdays`)
-Scorecard <- Scorecard %>% select(1:19, 21:44, 20)
+Scorecard <- Scorecard %>% select(1:20, 22:45, 21)
   
-colnames(Scorecard) <- c("Line of Business", "SIMS ID", "Date / Time", "Month", "Affected Employee",
+colnames(Scorecard) <- c("Line of Business", "SIMS ID", "Date / Time", "Month", "Hour", "Affected Employee",
                          "Job Title", "Department", "Yard", "Cost Center", "MV Classification", "Total Lost Days",
                          "Total Restricted Days", "Accident Type", "Injury / Illness Type", "Part of Body Affected",
                          "Date Out of Work", "Date Returned to Work", "Date Restricted", "Date Returned to Full Duty", 
@@ -330,6 +333,8 @@ colnames(Scorecard) <- c("Line of Business", "SIMS ID", "Date / Time", "Month", 
                          "Description")
 
 Scorecard <- as.data.frame(Scorecard)
+
+write.csv(Scorecard, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/DaysAway.csv", row.names = FALSE)
 
 # write.xlsx(Scorecard, 
 #            "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Scorecard.xlsx",
@@ -351,13 +356,13 @@ saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Scorecar
 
 ScorecardMVAs <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting") & 
                                  Calc_Year == CurrentYear & Calc_Month <= ReportMonth) %>% 
-  select(OrgStruct_Line.of.business, `System Event ID`, Date, Calc_Month, `EmpDir_Name:`, `EmpDir_Job Title:`,
-         OrgStruct_Division, Calc_EmployeeYard, `Cost Center`, `MV Classification`, 
+  select(OrgStruct_Line.of.business, `System Event ID`, Date, Calc_Month, Calc_Hour, `EmpDir_Name:`, `EmpDir_Job Title:`,
+         OrgStruct_Department, Calc_EmployeeYard, `Cost Center`, `MV Classification`, 
          Calc_CrashResp, Calc_CrashType, Fleet_Description, `Incident Long Description`) %>%
   arrange(OrgStruct_Line.of.business, Date)
 
 
-colnames(ScorecardMVAs) <- c("Line of Business", "SIMS ID", "Date / Time", "Month", 
+colnames(ScorecardMVAs) <- c("Line of Business", "SIMS ID", "Date / Time", "Month", "Hour",
                              "Driver Name", "Driver Job Title", "Department", "Yard",
                              "Cost Center", "MV Classification", "Crash Responsibility", "Crash Type", 
                              "Vehicle Description", "Description")
@@ -374,7 +379,110 @@ saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Scorecar
 
 
 
+#### InSite Report
+
+wb <- loadWorkbook("//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2017/InsiteMonthlyRequest/InsiteMonthlyRequest.xlsx")
+   
+sheets <- getSheets(wb)
 
 
+InjuryIllnessTypesToCount <- c("Strain/Sprain",
+                               "Bruise/Contusion",
+                               "Orthopedic condition - Occupational",
+                               "Dislocation",
+                               "Fracture/Break",
+                               "Musculoskeletal - Cumulative Trauma",
+                               "Carpal Tunnel Syndrome",
+                               "Repeated Motion Trauma")
+
+#Count all Mus-Skeletal-OSHAs
+
+temp <- Events %>% filter(`Event Subtype` %in% c("Other Recordable Case", "Days Away from Work", "Job Transfer or Restriction") &
+                  Calc_InjIll %in% InjuryIllnessTypesToCount) %>%
+           group_by(Calc_Year) %>%
+           summarise(Yearct = n())
+
+
+removeSheet(wb, sheetName="OSHAs")
+newSheet <- createSheet(wb, sheetName="OSHAs")
+addDataFrame(data.frame(temp), newSheet, row.names = FALSE)    
+saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2017/InsiteMonthlyRequest/InsiteMonthlyRequest.xlsx")
+
+#Count all Mus-Skeletal-OSHAs  YTD
+
+temp <- Events %>% filter(`Event Subtype` %in% c("Other Recordable Case", "Days Away from Work", "Job Transfer or Restriction") &
+                    Calc_Month <= ReportMonth &
+                    Calc_InjIll %in% InjuryIllnessTypesToCount) %>%
+  group_by(Calc_Year) %>%
+  summarise(Yearct = n())
+
+removeSheet(wb, sheetName="OSHAsYTD")
+newSheet <- createSheet(wb, sheetName="OSHAsYTD")
+addDataFrame(data.frame(temp), newSheet, row.names = FALSE)    
+saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2017/InsiteMonthlyRequest/InsiteMonthlyRequest.xlsx")
+
+
+#Count all Mus-Skeletal injuries
+
+temp <- Events %>% filter(Calc_InjIll %in% InjuryIllnessTypesToCount) %>%
+  group_by(Calc_Year) %>%
+  summarise(Yearct = n())
+
+removeSheet(wb, sheetName="AllInjuries")
+newSheet <- createSheet(wb, sheetName="AllInjuries")
+addDataFrame(data.frame(temp), newSheet, row.names = FALSE)    
+saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2017/InsiteMonthlyRequest/InsiteMonthlyRequest.xlsx")
+
+
+#Count all Mus-Skeletal injuries
+
+temp <-Events %>% filter(Calc_Month <= ReportMonth &
+                    Calc_InjIll %in% InjuryIllnessTypesToCount) %>%
+  group_by(Calc_Year) %>%
+  summarise(Yearct = n())
+
+removeSheet(wb, sheetName="AllInjuriesYTD")
+newSheet <- createSheet(wb, sheetName="AllInjuriesYTD")
+addDataFrame(data.frame(temp), newSheet, row.names = FALSE)    
+saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2017/InsiteMonthlyRequest/InsiteMonthlyRequest.xlsx")
+
+
+#Breakdown of Current Year injuries
+
+temp <- Events %>% filter(Calc_Month <= ReportMonth &
+                          Calc_Year == CurrentYear &
+                    Calc_InjIll %in% InjuryIllnessTypesToCount) %>%
+  group_by(Calc_InjIll) %>%
+  summarise(Yearct = n()) %>%
+  mutate(Percentage = round(100*Yearct / sum(Yearct),2))
+
+removeSheet(wb, sheetName="CurrentYrInjuriesByType")
+newSheet <- createSheet(wb, sheetName="CurrentYrInjuriesByType")
+addDataFrame(data.frame(temp), newSheet, row.names = FALSE)    
+saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2017/InsiteMonthlyRequest/InsiteMonthlyRequest.xlsx")
+
+
+#Breakdown of Body Part Affected
+
+BodyParts <- Events %>% filter(Calc_Month <= ReportMonth &
+                                 Calc_Year == CurrentYear &
+                                 Calc_InjIll %in% InjuryIllnessTypesToCount) %>%
+              select(`Part of Body Affected`) %>% 
+              separate(`Part of Body Affected`, c("BP1", "BP2", "BP3", 
+                                                               "BP4", "BP5", "BP6",
+                                                               "BP7", "BP8", "BP9", "BP10"), sep = ",", fill = "right")
+
+
+BodyParts <- BodyParts %>% gather("test", `Parts of Body Affected`, BP1:BP10,na.rm = TRUE)
+BodyParts$`Parts of Body Affected` <- trimws(BodyParts$`Parts of Body Affected`)
+
+temp <- BodyParts %>% group_by(`Parts of Body Affected`) %>%
+                  summarise(ct = n()) %>%
+                  arrange(desc(ct))
+
+removeSheet(wb, sheetName="CurrentYrBodyPartAffected")
+newSheet <- createSheet(wb, sheetName="CurrentYrBodyPartAffected")
+addDataFrame(data.frame(temp), newSheet, row.names = FALSE)    
+saveWorkbook(wb, "//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2017/InsiteMonthlyRequest/InsiteMonthlyRequest.xlsx")
 
 

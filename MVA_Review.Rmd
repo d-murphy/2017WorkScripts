@@ -1,0 +1,368 @@
+---
+title: "PSEG Long Island MVA Review"
+author: "Created by LI Health and Safety Compliance"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+source("PrepScript.r") 
+library(ggplot2)
+library(plotly)
+library(ggthemes)
+library(knitr)
+library(kableExtra)
+
+
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri("//gccscif01.psegliny.com/Safety/Murphy/Central/PSEGLI_logo.jpg"), 
+               alt = 'logo', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+------
+  
+  
+Since its inception in 2014, PSEGLI has averaged close to 100 MVAs per year.  The page looks to understand more about these incidents.  How frequently do they take place?  Which vehicles are having accidents?  And where are the accidents taking place?  These are some of the questions reviewed below.  
+  
+  
+### Contents 
+
+* MVA History
+* MVA Trends
+* MVA Locations
+* MVA Rates
+
+#### Count of MVAs per Year
+
+As of the publication date of this report, the following is the yearly MVA count for PSEG Long Island. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, out.width="500px"}
+
+kable(Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting")) %>% 
+            group_by(Calc_Year) %>%
+            summarise(Count = n()), "html", col.names = c("Year", "Count"),  align=rep('c', 5)) %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed", "responsive"))
+
+```
+
+#### MVA History
+
+This chart shows the number of MVAs per month from 2014 through the present.  Hovering over each dot, you can see details for each incident such as ID, date, accident type, vehicle type and location.  
+
+```{r echo=FALSE, out.width="800px", out.height="950px", message=FALSE, warning=FALSE}
+
+
+
+MVAHist <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting")) %>% 
+            arrange(Date) %>%
+            group_by(Calc_Year,Calc_Month) %>%
+            mutate(ypos = rank(Date, ties.method="first")) %>% 
+            ungroup() 
+
+
+lut <- c("V-JEEPX-JEEP CORP." = "Jeep",
+         "V-FORDX-FORD  A DIVISION OF FO" = "Ford",
+         "V-INTHR-INTERNATIONAL TRUCK" = "International Truck",
+         "V-CHEVROLET" = "Chevrolet",
+         "V-GMCXX-GMC TRUCK DIVISION" = "GMC",
+         "V-TOYOTA" = "Toyota",
+         "V-FRGHT-FREIGHTLINER CORPORATI" = "Freightliner",
+         "V-DODGE" = "Dodge",
+         "V-HONDA-HONDA MOTOR AMERICA  I" = "Honda",
+         "V-ROGER-ROGERS BROTHERS CORP." = "Rogers Brothers Corp",
+         "V-JOHN DEERE" = "John Deere",
+         "V-FORD" = "Ford",
+         "V-SAUBER MANUFACTURING" = "Sauber",
+         "V-CHVRL-CHEVROLET MOTOR DIV. O" = "Chebrolet",
+         "V-STRLG-STERLING TRUCK CORPORA" = "Sterling",
+         "V-VLVNA-VOLVO TRUCKS NORTH AME" = "Volvo",
+         "V-GENERAC" = "Generac",
+         "V-J & J TRAILER" = "J&J Trailer",
+         "V-GRTDN-GREAT DANE TRAILERS" = "Great Dane Trailers",
+         "V-GECAP-GE CAPITAL  CARGO TRAI" = "GE Capital",
+         "V-ISUZU-AMERICAN ISUZU MOTORS" = "Isuzu",
+         "V-TOYOT-TOYOTA MOTOR NORTH AME" = "Toyota",
+         "V-FREIGHTLINER" = "Freightliner", 
+         "V-SPETR-SPECIAL TRUCKS CONDOR" = "Condor",
+         "V-DODGE-DODGE DIV. CHRYSLER M" = "Dodge",
+         "V-HONDA-HONDA MOTOR AMERICA I" = "Honda",
+         "V-SULLAIR" = "Sullair",
+         "V-LIEBHERR" = "Leibherr"
+         )
+
+
+MVAHist <- MVAHist  %>%
+            mutate(text = paste0("Event ID: ", `System Event ID`, "\nDate: ", Date, "\nMVA Type: ", Calc_CrashType, 
+                                 "\nVehicle: ", ifelse(is.na(Fleet_Description), "Not Known or Rental", 
+                                                       paste(lut[Fleet_Manufacturer], `Fleet_Model number`)),
+                                 "\nLocation: ", `Specific Location/Address where incident occured`))
+    p <-  ggplot(MVAHist, aes(Calc_Month, ypos, color = Calc_CrashResp)) + 
+            geom_point( size = 2, aes(text = text)) + 
+            facet_grid( Calc_Year ~ .) +
+            theme_classic() +
+            scale_color_manual(values = c("dark grey", "orange")) + 
+            scale_y_continuous(breaks = c(5,10,15,20)) +
+            scale_x_continuous(breaks = c(1:12), labels = c("Jan","Feb","Mar","Apr","May","Jun",
+                                                            "Jul","Aug","Sep","Oct","Nov","Dec")) +
+            labs(x ="", y="",color="") +
+        theme(strip.text.y = element_text(size = 14),
+             axis.text = element_text(size = 14),
+             axis.title = element_text(size = 14),
+             legend.text = element_text(size =14),
+             panel.border = element_rect(colour = "black", fill = NA, size = 1), 
+             panel.background = element_rect(fill = "white"), 
+             legend.position = "bottom")
+
+ggplotly(p, tooltip="text") %>%
+  layout(legend = list(orientation = "h", x=0.3, y=-0.1))
+
+```
+
+#### Monthly MVA Trend
+
+This chart shows the distribution of MVAs per month.  On the x-axis is the number of MVAs taking place within a given month.  The number of instances of each count is shown by the height of each bar.    
+
+A blue bar shows the average number of MVAs per month.  The bar colored in Orange is the median value.  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+
+
+MVAHist <- MVAHist %>% 
+            group_by(Calc_Year,Calc_Month) %>%
+            summarise(Count = n())
+
+Avg = mean(MVAHist$Count)
+Med = median(MVAHist$Count)
+MVAHist$barColor = ifelse(MVAHist$Count == Med,1,0)
+
+ggplot(MVAHist, aes(Count, fill = factor(barColor))) + 
+            geom_bar() +
+            geom_vline(xintercept = Avg, color = "Dark Blue", size = 2) +
+            theme_classic() +
+            scale_fill_manual(values = c("dark grey", "orange")) +
+            scale_x_continuous(breaks = c(0,4,8,12,16,20)) +
+            labs(x = "MVAs in Month", y = "# of Occurrences") + 
+            guides(fill = FALSE)
+
+```
+
+
+#### YTD Counts
+
+This graph shows how the YTD count of MVAs has climbed throughout each year.  Each year begins at 0 on the left side of the graph.  The lines increment up on the day an MVA occurs to show how the years compare on any given date of the year.    
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+Events$Calc_DayNum <- yday(Events$Date)
+years <- data.frame(year = c(2014:2018))
+days <- data.frame(day = c(1:366))
+CountByDay <- merge(years,days)
+
+
+
+CountByDayJoin <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting")) %>% 
+  group_by(Calc_Year, Calc_DayNum) %>% summarise(Mvct = n())
+
+
+CountByDay <- left_join(CountByDay, CountByDayJoin, by = c("year" = "Calc_Year", "day" = "Calc_DayNum"))
+remove(CountByDayJoin)
+CountByDay$Mvct <- ifelse(is.na(CountByDay$Mvct),0,CountByDay$Mvct)
+CountByDay <- CountByDay %>% group_by(year) %>% mutate(MvYearSum = cumsum(Mvct))
+
+CountByDay$MvYearSum <- ifelse(CountByDay$year == year(today()) & CountByDay$day >= yday(today()), NA, CountByDay$MvYearSum )
+CountByDay <- CountByDay %>% 
+                mutate(text = paste0("Year:  ", year, "\nDay Number:  ", day, "\nMVA Count:  ", MvYearSum))
+
+CountByDay %>% ggplot(aes(x = day, y=MvYearSum,color = factor(year))) + 
+  geom_step(size = 1) +
+  scale_x_continuous(limits =   c(0,366),
+                     breaks = c(1,32, 60, 91,121,152,182,213,244,274,305,335), 
+                     labels = c("Jan", "Feb", "Mar", "Apr","May","Jun", "Jul", "Aug","Sep", "Oct","Nov","Dec")) + 
+  scale_y_continuous(breaks = c(seq(0,120,20))) +
+  theme_hc() +
+  scale_color_pander() + 
+  labs(y = "MVA Counts during Year", x = "", color = "") +
+  ggtitle(paste0("MVA Count During Year\nas of ", today())) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+#### MVA Locations
+
+This map allows a visual inspection of where PSEGLI MVAs are taking place.  The goal of the chart is to identify troublesome roads or intersections.  Each yard should review their surrounding territory for hot spots.  One trend which is seen across the island - many accidents take place within company yards.  
+
+By clicking on a data point, additional data about an incident is available such as date, the vehicle involved, and the type of accident.  (Send location corrections to Dan Murphy.)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+library(ggmap)
+library(leaflet)
+
+LocJoin <- read.csv("//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/LonLat.csv")
+LocJoin$System.Event.ID <- as.character(LocJoin$System.Event.ID)
+LocJoin$Specific.Location.Address.where.incident.occured <- NULL
+Events <- left_join(Events,LocJoin,by = c('System Event ID'='System.Event.ID'))
+
+# Uncomment and run code below to pull lon/lats.
+
+# LocJoin <- Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting")) %>%
+#   select(`System Event ID`, `Specific Location/Address where incident occured`, Lon, Lat)
+# 
+# NumberOfAPIcalls <- 0
+# 
+# for(i in 1:dim(LocJoin)[1]){
+# 
+#   if(is.na(LocJoin$Lon[i]) & !is.na(LocJoin$`Specific Location/Address where incident occured`[i])){
+#     gcReturn <- geocode(LocJoin[[i,2]])
+#     LocJoin$Lon[i] <- gcReturn$lon[1]
+#     LocJoin$Lat[i] <- gcReturn$lat[1]
+#     NumberOfAPIcalls <- NumberOfAPIcalls + 1
+#   }
+# }
+# 
+# write.csv(LocJoin, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/LonLat.csv", row.names = FALSE)
+
+MVAs <-  Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting"))
+
+leaflet(data = MVAs) %>%
+   addProviderTiles(providers$OpenStreetMap) %>%
+   addMarkers(~Lon, ~Lat,popup = ~as.character(paste0("SIMS #: ",`System Event ID`, 
+                                                       "</br>Date: ", Date,
+                                                       "</br>Time: ", Calc_Hour,"00 Hours",
+                                                       "</br>Cost Center: ", `Cost Center`,
+                                                       "</br>Location: ", `Specific Location/Address where incident occured`,
+                                                       "</br>Vehicle: ", ifelse(is.na(Fleet_Description), "Not Known or Rental", 
+                                                       paste(lut[Fleet_Manufacturer], `Fleet_Model number`)),
+                                                       "</br>MVA Type: ", Calc_CrashResp, " - ", Calc_CrashType
+                                                      )), 
+              clusterOptions = markerClusterOptions())
+
+
+
+```
+
+#### Vehicle Rates
+
+The chart shows the MVA Rates for different vehicle types within each yard.  The rates are based on Miles and MVAs recorded for 2016-2017.  The PSEGLI two-year MVA rate (10.69) is shown as a dashed line.  The 2018 Top Decile target (5.31) appears a solid line.  
+
+Aerials (dark blue) and Heavy Duty vehicles (orange) tend to show higher rates than the light duty vehicles (grey).  More densely populated areas also show higher rates.  Nassau and Western Suffolk locations appear most often on the left-hand side of the company average, indicating a higher MVA rate, whereas Eastern Suffolk locations tend to appear to the right of the company average and even some beyond the Top Decile Target line.  
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+FleetMiles <- read_excel("//gccscif01.psegliny.com/Safety/Incidents-Scorecard Data/2018/One Time Requests/VehicleMvaRates/VehMileage2016-2017.xlsx")
+
+FleetMiles <- MVAs %>% select(`Company Vehicle Number`, Calc_Year) %>% 
+  group_by(`Company Vehicle Number`, Calc_Year) %>% 
+  summarise(YearMVAcount = n()) %>%
+  ungroup() %>%
+  right_join(FleetMiles, by = c("Calc_Year" = "Year", "Company Vehicle Number" = "VehNum"))
+
+FleetMiles$YearMVAcount <- ifelse(is.na(FleetMiles$YearMVAcount),0,FleetMiles$YearMVAcount)
+
+FleetMiles <- left_join(FleetMiles, Fleet %>% select(Fleet_VehID, Fleet_Manufacturer, 
+                                                     `Fleet_Model number`, `Fleet_Functional Loc.`, Fleet_ConstructYear), 
+                        by = c("Company Vehicle Number" = "Fleet_VehID"))
+
+FleetMiles$MakeModel <- paste0(lut[FleetMiles$Fleet_Manufacturer]," ", FleetMiles$`Fleet_Model number`)
+
+TargetRates =data.frame(int = c(0,0), slp = c(5.31 / 1000000, (115 + 106) / (10074570 + 10581703)), lab = factor(c("Top Decile", "Two Year MVA Rate")))
+
+
+p <- FleetMiles %>% 
+  filter(FleetClass != "Off Road" & is.na(`Fleet_Functional Loc.`) == FALSE) %>%
+  group_by(`Fleet_Functional Loc.`,FleetClass) %>%
+  summarise(Miles = sum(`Prior 12 months usage (MILES)`),
+            'MVA Count' = sum(YearMVAcount)) %>%
+  mutate(text = paste0("Location: ", `Fleet_Functional Loc.`,
+                       "\nVehicle Type: ", FleetClass,
+                       "\nMiles: ", Miles,
+                       "\nMVAs: ", `MVA Count`)) %>%
+  ggplot(aes(Miles, `MVA Count`, 
+             color = factor(FleetClass),
+             shape = factor(FleetClass))) + 
+  geom_point(aes(text = text)) + 
+  geom_abline(data = TargetRates, mapping=aes(intercept = int, slope = slp, linetype=lab)) +
+  theme_classic() +
+  scale_color_manual(values = c("dark blue", "orange", "dark grey"),
+                     labels = c("Aerial", "Heavy Duty", "Light Duty")) + 
+  labs(color = "", shape = "", linetype="") + 
+  scale_x_continuous(breaks = c(0,1000000,2000000,3000000,4000000), 
+                     labels = scales::comma)
+  
+ggplotly(p, tooltip="text") %>% layout(showlegend = FALSE)
+
+
+```
+
+
+This chart shows the MVA Rates for different models of vehicles.  The rates are again based on Miles and MVAs recorded for 2016-2017.  The PSEGLI two-year MVA rate (10.69) is shown as a dashed line.  The 2018 Top Decile target (5.31) appears a solid line.  
+
+Aerials (dark blue) and Heavy Duty vehicles (orange) tend to show higher rates than the light duty vehicles (grey). 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+
+
+p <- FleetMiles %>% 
+  filter(FleetClass != "Off Road") %>%
+  group_by(MakeModel,FleetClass) %>%
+  summarise(Miles = sum(`Prior 12 months usage (MILES)`),
+            'MVA Count' = sum(YearMVAcount)) %>%
+  mutate(text = paste0("Vehicle: ", MakeModel,
+                       "\nMiles: ", Miles,
+                       "\nMVAs: ", `MVA Count`)) %>%
+  ggplot(aes(Miles, `MVA Count`, 
+             color = factor(FleetClass),
+             shape = factor(FleetClass))) + 
+  geom_point(aes(text = text)) + 
+  geom_abline(data = TargetRates, mapping=aes(intercept = int, slope = slp, linetype=lab)) +
+  theme_classic() +
+  scale_color_manual(values = c("dark blue", "orange", "dark grey"),
+                     labels = c("Aerial", "Heavy Duty", "Light Duty")) + 
+  labs(color = "", shape = "", linetype="")+ 
+  scale_x_continuous(labels = scales::comma)
+  
+ggplotly(p, tooltip="text") %>% layout(showlegend = FALSE) 
+  
+
+
+```
+
+
+
+<!-- ```{r echo=FALSE, message=FALSE, warning=FALSE} -->
+
+
+
+<!-- p <- FleetMiles %>%  -->
+<!--   filter(FleetClass != "Off Road") %>% -->
+<!--   group_by(Fleet_ConstructYear) %>% -->
+<!--   summarise(Miles = sum(`Prior 12 months usage (MILES)`), -->
+<!--             'MVA Count' = sum(YearMVAcount)) %>% -->
+<!--   mutate(text = paste0("Year: ", Fleet_ConstructYear, -->
+<!--                        "\nMiles: ", Miles, -->
+<!--                        "\nMVAs: ", `MVA Count`)) %>% -->
+<!--   ggplot(aes(Miles, `MVA Count`,  -->
+<!--              color = Fleet_ConstructYear)) +  -->
+<!--   geom_point(aes(text = text)) +  -->
+<!--   geom_abline(data = TargetRates, mapping=aes(intercept = int, slope = slp, linetype=lab)) + -->
+<!--   theme_classic() + -->
+<!--   # scale_color_manual(values = c("dark blue", "orange", "dark grey"), -->
+<!--   #                    labels = c("Aerial", "Heavy Duty", "Light Duty")) +  -->
+<!--   labs(color = "", shape = "", linetype="")+  -->
+<!--   scale_x_continuous(labels = scales::comma) -->
+
+<!-- ggplotly(p, tooltip="text") %>% layout(showlegend = FALSE)  -->
+
+
+
+<!-- ``` -->

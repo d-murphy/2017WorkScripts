@@ -1,0 +1,225 @@
+---
+title: "YTD Safety Update"
+author: "OH / UG"
+date: "June 19, 2018"
+output: 
+  ioslides_presentation:
+    css: style.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+source("PrepScript.r") 
+library(ggplot2)
+library(plotly)
+library(ggthemes)
+library(knitr)
+library(kableExtra)
+library(lubridate)
+
+
+### Adjust this if you'd like filter to LOB or department level
+
+OSHA <-  Events %>% filter(`Event Subtype` %in% c("Days Away from Work", "Other Recordable Case", "Job Transfer or Restriction")  
+                         & `Type of Person` %in% c("Employee", "Contractor PSEG Supervised")
+                         & OrgStruct_Line.of.business == "T&D Operations"
+                         & CC %in% c(5246, 5247, 5242,5243, 5241, 5425, 5116, 5132, 5142, 5152)
+)
+
+
+MVA <-  Events %>% filter(`MV Classification` %in% c("MV - On the job", "MC - Commuting")
+                         & OrgStruct_Line.of.business == "T&D Operations"
+                         & CC %in% c(5246, 5247, 5242,5243, 5241, 5425, 5116, 5132, 5142, 5152)  # Use for OH/UG
+)
+
+
+
+```
+
+<style>
+.column-left{
+  float: left;
+  width: 40%;
+  text-align: left;
+}
+.column-right{
+  float: right;
+  width: 60%;
+  text-align: center;
+}
+</style>
+
+
+## YTD OSHA Count
+
+<div class="column-left">
+
+```{r  message=FALSE, warning=FALSE}
+
+p <-  OSHA %>% filter((Calc_Month < month(today()) | 
+                        (Calc_Month == month(today()) & Calc_Day <= day(today())))) %>% 
+            group_by(Calc_Year) %>%
+            summarise(Count = n())
+```
+YTD OSHA totals:  
+
+*  2014:  `r p[p$Calc_Year == 2014, ][[2]]`  
+*  2015:  `r p[p$Calc_Year == 2015, ][[2]]`  
+*  2016:  `r p[p$Calc_Year == 2016, ][[2]]`  
+*  2017:  `r p[p$Calc_Year == 2017, ][[2]]`  
+*  2018:  `r p[p$Calc_Year == 2018, ][[2]]`  
+</div>
+<div class="column-right">
+```{r fig2, fig.height=5, fig.width=5, message=FALSE, warning=FALSE}
+OSHA$Calc_DayNum <- yday(OSHA$Date)
+
+years <- data.frame(year = c(2014:2018))
+days <- data.frame(day = c(1:366))
+CountByDay <- merge(years,days)
+
+CountByDayJoin <- OSHA %>% 
+      group_by(Calc_Year, Calc_DayNum) %>% summarise(ct = n())
+
+CountByDay <- left_join(CountByDay, CountByDayJoin, by = c("year" = "Calc_Year", "day" = "Calc_DayNum"))
+remove(years, days, CountByDayJoin)
+CountByDay$ct <- ifelse(is.na(CountByDay$ct),0,CountByDay$ct)
+CountByDay <- CountByDay %>% group_by(year) %>% mutate(YearSum = cumsum(ct))
+
+CountByDay$YearSum <- ifelse(CountByDay$year == year(today()) & CountByDay$day >= yday(today()), NA, CountByDay$YearSum )
+
+CountByDay %>% ggplot(aes(x = day, y=YearSum,color = factor(year))) + 
+  geom_step(size = 1) +
+  scale_x_continuous(limits =   c(0,366),
+                     breaks = c(1,32, 60, 91,121,152,182,213,244,274,305,335), 
+                     labels = c("Jan", "Feb", "Mar", "Apr","May","Jun", "Jul", "Aug","Sep", "Oct","Nov","Dec")) + 
+  scale_y_continuous(breaks = c(seq(0,60,10))) +
+  theme_hc() +
+  scale_color_pander() + 
+  labs(y = "OSHA Counts by Year", x = "", color = "") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+</div>
+
+
+## Current Year Accident Types
+
+```{r  message=FALSE, warning=FALSE}
+
+OSHA$`Accident Type` <- ifelse(OSHA$`Accident Type` %in% c("Felt pain, etc. during routine - bending",
+                                                           "Felt pain, etc.during routine-reaching or twisting",
+                                                           "Felt pain, etc.during routine-into-out of vechicle"),
+                                   "Felt pain, etc during routine",OSHA$`Accident Type`)
+
+AccTypes <- OSHA %>% filter(Calc_Year == year(today())) %>% 
+  group_by(`Accident Type`) %>%
+  summarise(Count = n())  
+
+AccTypes$color <- ifelse(AccTypes$`Accident Type` %in% c("Felt pain, etc during routine", "Repetitive Motion / Vibration"),1,0)
+
+AccTypes %>% 
+  ggplot(aes(reorder(`Accident Type`, Count), Count, fill = factor(color))) +
+  geom_bar(stat = "identity") + 
+  coord_flip() +
+  theme_hc() +
+  geom_text(aes(label=Count),position = position_stack(vjust = 0.5)) + 
+  theme(axis.text = element_text(size = 12)) + 
+  labs(x = "Accident Type", fill = "") + 
+  scale_fill_manual(values = c("#D55E00", "#5688d8"),
+                    labels = c("All Others", "MSK Injuries"))
+
+
+```
+
+## Current Year Injury Types
+
+```{r  message=FALSE, warning=FALSE}
+
+InjTypes <- OSHA %>% filter(Calc_Year == year(today())) %>% 
+  group_by(Calc_InjIll) %>%
+  summarise(Count = n()) 
+
+InjTypes$color <- ifelse(InjTypes$Calc_InjIll %in% c("Strain and/or sprain", "Orthopedic condition - Occupational"),1,0)
+
+InjTypes %>%
+  ggplot(aes(reorder(Calc_InjIll, Count),Count, fill = factor(color))) +
+  geom_bar(stat = "identity") + 
+  coord_flip() +
+  theme_hc() +
+  geom_text(aes(label=Count),position = position_stack(vjust = 0.5)) + 
+  theme(axis.text = element_text(size = 12)) + 
+  labs(x = "Injury Type", fill = "") + 
+  scale_fill_manual(values = c("#D55E00", "#5688d8"),
+                    labels = c("All Others", "MSK Injuries"))
+
+
+```
+
+## YTD MVA Count
+
+```{r  message=FALSE, warning=FALSE}
+
+p <-  MVA %>% filter((Calc_Month < month(today()) | 
+                        (Calc_Month == month(today()) & Calc_Day <= day(today())))) %>% 
+            group_by(Calc_Year) %>%
+            summarise(Count = n())
+```
+<div class="column-left">
+YTD MVA totals:  
+
+*  2014:  `r p[p$Calc_Year == 2014, ][[2]]`  
+*  2015:  `r p[p$Calc_Year == 2015, ][[2]]`  
+*  2016:  `r p[p$Calc_Year == 2016, ][[2]]`  
+*  2017:  `r p[p$Calc_Year == 2017, ][[2]]`  
+*  2018:  `r p[p$Calc_Year == 2018, ][[2]]`
+</div>
+<div class="column-right">
+```{r fig3, fig.height=5, fig.width=5, message=FALSE, warning=FALSE}
+MVA$Calc_DayNum <- yday(MVA$Date)
+
+years <- data.frame(year = c(2014:2018))
+days <- data.frame(day = c(1:366))
+CountByDay <- merge(years,days)
+
+CountByDayJoin <- MVA %>% 
+      group_by(Calc_Year, Calc_DayNum) %>% summarise(ct = n())
+
+CountByDay <- left_join(CountByDay, CountByDayJoin, by = c("year" = "Calc_Year", "day" = "Calc_DayNum"))
+remove(years, days, CountByDayJoin)
+CountByDay$ct <- ifelse(is.na(CountByDay$ct),0,CountByDay$ct)
+CountByDay <- CountByDay %>% group_by(year) %>% mutate(YearSum = cumsum(ct))
+
+CountByDay$YearSum <- ifelse(CountByDay$year == year(today()) & CountByDay$day >= yday(today()), NA, CountByDay$YearSum )
+
+CountByDay %>% ggplot(aes(x = day, y=YearSum,color = factor(year))) + 
+  geom_step(size = 1) +
+  scale_x_continuous(limits =   c(0,366),
+                     breaks = c(1,32, 60, 91,121,152,182,213,244,274,305,335), 
+                     labels = c("Jan", "Feb", "Mar", "Apr","May","Jun", "Jul", "Aug","Sep", "Oct","Nov","Dec")) + 
+  scale_y_continuous(breaks = c(seq(0,120,20))) +
+  theme_hc() +
+  scale_color_pander() + 
+  labs(y = "MVA Counts by Year", x = "", color = "") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+</div>
+
+## YTD MVA Types
+
+```{r  message=FALSE, warning=FALSE}
+
+MVA %>% filter(Calc_Year==2018) %>%
+  group_by(Calc_CrashType, Calc_CrashResp) %>%
+  summarise(Count = n()) %>%
+  ggplot(aes(reorder(Calc_CrashType,Count,sum), Count,fill = Calc_CrashResp)) + 
+  geom_bar(stat = "identity") + 
+  coord_flip() +
+  theme_hc() +
+  scale_fill_pander() + 
+  scale_y_continuous(breaks = c(seq(0,120,3)))+
+  labs(y = "Count", x = "Accident Type", fill = "") + 
+  theme(axis.text = element_text(size = 12)) +
+ geom_text(aes(label = Count), position = position_stack(vjust = 0.5))
+```

@@ -3,6 +3,7 @@ library(readxl)
 library(stringr)
 library(lubridate)
 library(xlsx)
+library(tidyr)
 
 
 ### Values {name}_ are not in the original data set.  
@@ -15,10 +16,10 @@ library(xlsx)
 # remove(list = ls())
 
 
-ReportDate <- ymd("2017-8-20")  
+ReportDate <- ymd("2018-7-8")  
 #ReportDate <- ymd(today())
 CurrentYear <- year(today())
-LastYear <- year(today() - 365)
+LastYear <- CurrentYear - 1
 
 
 # read_excel failed to read LTD Dates in properly.  read.xlsx2 didn't use NAs.  Used read.xlsx2 to read LTD Dates and joined to Events
@@ -39,22 +40,81 @@ Events <- Events %>% select(-`Date Out of Work`, -`Date Returned to Work`, -`Dat
 Events <- left_join(Events, LTDDays, by= "System Event ID")
 remove(LTDDays)
 
-
-Events$Date <- ymd_hm(Events$`Incident Date / Incident Time`)
+Events$Date <- ymd(substring(Events$`Incident Date / Incident Time`, 1, 10))
 Events$Calc_Year <- year(Events$`Incident Date / Incident Time`)
 Events$Calc_Month <- month(Events$`Incident Date / Incident Time`)
 Events$Calc_Day <- day(Events$`Incident Date / Incident Time`)
 Events$Calc_Time <- hm(substring(Events$`Incident Date / Incident Time`,12,16))
 Events$Calc_Hour <- hour(Events$Calc_Time)
-Events$Calc_EmpID <- ifelse(is.na(Events$`Personnel No.`), Events$`Driver Employee ID`,Events$`Personnel No.`)
+
+Events$Calc_EmpID <- ifelse(Events$Calc_Year %in% c(2014,2015), (Events$`Personnel No.`),
+                        ifelse(is.na(Events$`Driver Employee ID`), Events$`Personnel No.`, Events$`Driver Employee ID`))
+
+
 Events$`Total Lost Days` <- as.numeric(Events$`Total Lost Days`)
 Events$`Total Restricted Days` <- as.numeric(Events$`Total Restricted Days`)
+
+
+## Start of PYTD Lost Days calculation
+
+
+LostDaysRaw <-  Events %>% filter(!is.na(`Actual Lost Workdays`)) %>% select(`System Event ID`, `Actual Lost Workdays`, Date, Date.Out.of.Work)
+LostDaysRaw <- LostDaysRaw %>% separate(`Actual Lost Workdays`, c("c1","c2","c3","c4","c5","c6","c7","c8","c9","c10","c11","c12"),
+                                        sep = "<br>", extra = "warn", fill = "right",remove = TRUE)
+
+LostDaysRaw <- LostDaysRaw %>% gather("SoonToBeDropped", "LostDaysString",starts_with("c"))
+LostDaysRaw$SoonToBeDropped <- NULL
+
+LostDaysRaw <- LostDaysRaw %>% filter(!is.na(LostDaysString))
+LostDaysRaw <- LostDaysRaw %>% separate(LostDaysString,c("Month","Year","drop","Days"), sep = " ", extra = "warn", fill = "right")
+LostDaysRaw$drop <- NULL
+
+LUT <- c("Jan" = 1, "Feb" = 2, "Mar" = 3, "Apr" = 4, "May" = 5, "Jun" = 6,
+         "Jul" = 7, "Aug" = 8, "Sep" = 9, "Oct" = 10, "Nov" = 11, "Dec" = 12)
+LostDaysRaw$Month <- LUT[LostDaysRaw$Month]
+LostDaysRaw$Year <- as.numeric(LostDaysRaw$Year)
+LostDaysRaw$Days <- as.numeric(LostDaysRaw$Days)
+
+
+LostDaysRaw$RptDateLessDateOut <- ymd(paste0(LostDaysRaw$Year,"/",month(ReportDate),"/",day(ReportDate))) - LostDaysRaw$Date.Out.of.Work
+LostDaysRaw$RptDateLessDateOut <- ifelse(LostDaysRaw$RptDateLessDateOut <0,0,LostDaysRaw$RptDateLessDateOut)
+
+LostDaysRaw$MaxDaysOrReportDay <- ifelse(LostDaysRaw$Days < day(ReportDate), LostDaysRaw$Days, day(ReportDate))
+
+
+
+LostDaysRaw$YTDDays <- ifelse(LostDaysRaw$Month < month(ReportDate) & year(LostDaysRaw$Date) == LostDaysRaw$Year, LostDaysRaw$Days, 
+                              ifelse(LostDaysRaw$Month == month(ReportDate) & year(LostDaysRaw$Date) == LostDaysRaw$Year,
+                                     ifelse(month(LostDaysRaw$Date.Out.of.Work) == LostDaysRaw$Month & 
+                                        year(LostDaysRaw$Date.Out.of.Work) == LostDaysRaw$Year,
+                                        LostDaysRaw$RptDateLessDateOut,LostDaysRaw$MaxDaysOrReportDay),0))
+
+LostDaysRaw$MTDDays <- ifelse(LostDaysRaw$Month == month(ReportDate) & year(LostDaysRaw$Date) == LostDaysRaw$Year, 
+                              ifelse(month(LostDaysRaw$Date.Out.of.Work) == LostDaysRaw$Month & 
+                                       year(LostDaysRaw$Date.Out.of.Work) == LostDaysRaw$Year,
+                                     LostDaysRaw$RptDateLessDateOut,LostDaysRaw$MaxDaysOrReportDay),0)
+
+
+
+### This didn't work for pre-2016 because Date Out of Work not recorded so excluded in final.  
+
+LostDaysRaw <- LostDaysRaw %>% filter(Date > ymd("2015-12-31"))
+
+LostDaysRaw <- LostDaysRaw %>% group_by(`System Event ID`) %>% summarise(YTDLostDays = sum(YTDDays))
+
+Events <- left_join(Events, LostDaysRaw, by = "System Event ID")
+
+## End of PYTD Lost Days Calculation
+
+
+
+
 Events$Calc_InjIll <- ifelse(is.na(Events$`Nature of Injury`), Events$`Illness Type`, Events$`Nature of Injury`)
 
 
 # Adding OrgStruct_
 
-CCLut <- read.csv("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/OrgStructure.csv")
+CCLut <- read.csv("//gccscif01.psegliny.com/Safety/Murphy/Data Uploads/OrgStructure2018.csv")
 colnames(CCLut) <- paste("OrgStruct",colnames(CCLut), sep = "_")
 Events$CC <- as.numeric(str_sub(Events$`Cost Center`,1,4))
 Events <- left_join(Events,CCLut,by = c("CC" = "OrgStruct_CC"))
@@ -128,7 +188,12 @@ ADY3 <- AD %>% filter(Course == "PSEG LI Driver Training Y3") %>%
 colnames(ADY3)[2] <- "PSEG LI Driver Training Y3 Status"
 EmpDir <- left_join(EmpDir, ADY3, by = "Personnel No.")
 
-remove(ADHPE, ADHPTT, ADY2, ADY3, AD)
+ADY4 <- AD %>% filter(Course == "PSEG LI - Driver Training - Y4") %>%
+  select(`Personnel No.`, Status)
+colnames(ADY4)[2] <- "PSEG LI Driver Training Y4 Status"
+EmpDir <- left_join(EmpDir, ADY4, by = "Personnel No.")
+
+remove(ADHPE, ADHPTT, ADY2, ADY3, ADY4, AD)
 
 IsDriver <- read_excel("//gccscif01.psegliny.com/Safety/Safety Training/1-TrainingRecords/DriverTraining/Original Driver Training Status Report with Company Driver Status.xlsx")
 IsDriver$`Personnel No.` <- as.character(IsDriver$`Personnel No.`)
@@ -151,7 +216,8 @@ remove(IsDriver)
 EmpDirJoin <- EmpDir %>% select(`Personnel No.`,`Job Title:`,Location, `Name:`, `Is Driver Final?`, 
                                 `Date of Smith Training`, `Date of Defensive Driver Training`,`Date of SAFE Driver Training`,
                                 `Hazard Perception Evaluation Status`, `Hazard Perception Targeted Training Status`,
-                                `PSEG LI Driver Training Y2 Status`, `PSEG LI Driver Training Y3 Status`)
+                                `PSEG LI Driver Training Y2 Status`, `PSEG LI Driver Training Y3 Status`, `PSEG LI Driver Training Y4 Status`,
+                                `Personnel Area Text`)
 colnames(EmpDirJoin) <- paste("EmpDir", colnames(EmpDirJoin), sep = "_")
 Events <- left_join(Events, EmpDirJoin, by = c("Calc_EmpID" = "EmpDir_Personnel No."))
 remove(EmpDirJoin)
@@ -249,7 +315,7 @@ temp$`PSEG Unit` <- as.character(temp$`PSEG Unit`)
 
 Fleet <- left_join(Fleet, temp, by = c("Fleet_VehID" = "PSEG Unit"))
 remove(temp)
-
+ 
 temp <- Tickets %>% filter(`Type (Red Light, Speeding)` != "SPEEDING ")  %>%
   group_by(`PSEG Unit`) %>%
   summarise(Fleet_NumTixWOspeed = n())
@@ -392,8 +458,8 @@ remove(TownNames)
 Events <- Events %>% arrange(desc(Date))
 
 write.csv(Events, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Events.csv", row.names = FALSE)
-write.csv(Fleet, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Fleet.csv", row.names = FALSE)
-write.csv(EmpDir, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/EmpDir.csv", row.names = FALSE)
+#write.csv(Fleet, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/Fleet.csv", row.names = FALSE)
+#write.csv(EmpDir, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/EmpDir.csv", row.names = FALSE)
 
 ### To check Fleet WO Numbers
 
@@ -404,6 +470,8 @@ write.csv(EmpDir, "//gccscif01.psegliny.com/Safety/Murphy/Data Downloads/EmpDir.
 
 # 
 # remove(list = ls())
+
+
 
 
 
